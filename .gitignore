@@ -1,0 +1,22 @@
+node_modules/
+out/
+dist/
+*.log
+.DS_Store
+.vite/
+.claude/
+
+# Secrets — never commit credentials. Auth is delegated to the OS keychain via
+# git/gh; nothing secret should ever live in the repo. These patterns are a
+# safety net so a contributor can't accidentally commit local tokens/keys.
+.env
+.env.*
+*.local
+*.pem
+*.key
+*.p12
+*.keychain
+.netrc
+secrets.json
+gh-token*
+**/credentials
