@@ -2,6 +2,12 @@ import { app, BrowserWindow, shell, screen } from 'electron'
 import { join } from 'path'
 import { registerIpc } from './ipc'
 
+// Name the app explicitly so the macOS menu bar (and dock / About panel / the
+// userData directory) read "Agentic Command Center" rather than "Electron".
+// In dev `app.name` otherwise falls back to Electron's default; packaged builds
+// already get this from the bundle's CFBundleName. Must run before app ready.
+app.setName('Agentic Command Center')
+
 function createWindow(): void {
   // Sized for the dashboard: two columns of project cards with enough height to
   // show the repos, Claude usage, and the full contribution graph at once. We
