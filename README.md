@@ -12,6 +12,12 @@ the [GitHub CLI](https://cli.github.com), Claude Code) and **never stores a sing
 own**. If a tool isn't installed or signed in, that one panel simply shows as unavailable and the
 rest keeps working.
 
+<p align="center">
+  <img src="docs/screenshot.png" alt="Agentic Command Center dashboard showing repository cards, the health bar, Claude Code usage, and the GitHub contribution graph" width="420" />
+</p>
+
+<p align="center"><sub>Repository names and figures above are illustrative sample data.</sub></p>
+
 ---
 
 ## Table of contents
@@ -601,7 +607,3 @@ Yes by default — click the 📌 pin button in the toolbar to toggle it.
 | **"Open in editor" does nothing** | Install one of Cursor, VS Code, Zed, or Sublime Text. |
 
 ---
-
-## License
-
-MIT.
