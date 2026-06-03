@@ -99,7 +99,8 @@ that specific panel.
 
 ### Option A — Prebuilt app (`.dmg`)
 
-1. Download the latest **`Agentic Command Center-<version>-arm64.dmg`** from the
+1. Download the latest **`.dmg`** (Apple Silicon / arm64 — e.g.
+   `Agentic.Command.Center-<version>-arm64.dmg`) from the
    [**Releases**](https://github.com/jashankish/agentic-command-center/releases) page.
 2. Open the `.dmg` and drag **Agentic Command Center** into **Applications**.
 3. **First launch (unsigned app).** It isn't notarized with an Apple Developer certificate, so
