@@ -120,6 +120,8 @@ export function registerIpc(): void {
     if (!win) return false
     const next = !win.isAlwaysOnTop()
     win.setAlwaysOnTop(next, 'floating')
+    // Keep the docked feed window (a child of the main window) floating in step.
+    for (const child of win.getChildWindows()) child.setAlwaysOnTop(next, 'floating')
     return next
   })
 }

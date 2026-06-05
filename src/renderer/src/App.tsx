@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type {
   RepoStatus,
   RepoInsights,
@@ -8,8 +8,7 @@ import type {
   RepoMeta,
   Inbox,
   SystemStats,
-  CalendarData,
-  CommitFeed
+  CalendarData
 } from '../../shared/types'
 import RepoBox from './components/RepoBox'
 import RepoCard, { type ActionKind } from './components/RepoCard'
@@ -24,7 +23,6 @@ import StandupDialog from './components/StandupDialog'
 import PromptDialog from './components/PromptDialog'
 import InfoDialog from './components/InfoDialog'
 import CommandPalette, { type Command } from './components/CommandPalette'
-import CommitFeedPanel from './components/CommitFeedPanel'
 import {
   IconRefresh,
   IconPlus,
@@ -65,10 +63,9 @@ export default function App(): JSX.Element {
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [groupEditPath, setGroupEditPath] = useState<string | null>(null)
   const [infoOpen, setInfoOpen] = useState(false)
+  // Whether the separate, docked feed window is currently open. The main process
+  // owns the real state; this just drives the toolbar toggle's highlight.
   const [feedOpen, setFeedOpen] = useState(false)
-  const [feed, setFeed] = useState<CommitFeed | null>(null)
-  const [feedLoading, setFeedLoading] = useState(false)
-  const feedOpenRef = useRef(feedOpen)
 
   const flash = useCallback((msg: string) => {
     setToast(msg)
@@ -120,22 +117,11 @@ export default function App(): JSX.Element {
   const loadSystem = useCallback(async () => setSystem(await window.api.getSystemStats()), [])
   const loadCalendar = useCallback(async () => setCalendar(await window.api.getCalendar()), [])
 
-  const loadFeed = useCallback(async () => {
-    setFeedLoading(true)
-    try {
-      const repos = await window.api.listRepos()
-      setFeed(await window.api.getCommitFeed(repos))
-    } finally {
-      setFeedLoading(false)
-    }
+  // Open/close the docked feed window in the main process; it returns the
+  // resulting state (the single source of truth) which we mirror for the toggle.
+  const handleToggleFeed = useCallback(async () => {
+    setFeedOpen(await window.api.toggleFeed())
   }, [])
-
-  const handleToggleFeed = useCallback(() => {
-    const next = !feedOpenRef.current
-    feedOpenRef.current = next
-    setFeedOpen(next)
-    if (next) loadFeed()
-  }, [loadFeed])
 
   const reloadAll = useCallback(() => {
     refresh()
@@ -146,10 +132,9 @@ export default function App(): JSX.Element {
     loadInbox()
   }, [refresh, loadDevServers, loadClaude, loadInsights, loadMeta, loadInbox])
 
-  // Keep ref in sync so the interval closure always sees the latest value.
-  useEffect(() => {
-    feedOpenRef.current = feedOpen
-  }, [feedOpen])
+  // The feed window can be closed out from under us (e.g. ⌘W); clear the toggle
+  // highlight when the main process reports it gone.
+  useEffect(() => window.api.onFeedClosed(() => setFeedOpen(false)), [])
 
   useEffect(() => {
     reloadAll()
@@ -171,15 +156,10 @@ export default function App(): JSX.Element {
       loadInsights()
       loadCalendar()
     }, 300000)
-    // Refresh the feed while it's open so summaries appear as ollama finishes.
-    const feedPoll = setInterval(() => {
-      if (feedOpenRef.current) loadFeed()
-    }, 20000)
     return () => {
       clearInterval(fast)
       clearInterval(medium)
       clearInterval(slow)
-      clearInterval(feedPoll)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -595,13 +575,6 @@ export default function App(): JSX.Element {
       {infoOpen && <InfoDialog onClose={() => setInfoOpen(false)} />}
 
       {toast && <div className="toast">{toast}</div>}
-
-      <CommitFeedPanel
-        open={feedOpen}
-        feed={feed}
-        loading={feedLoading}
-        onClose={handleToggleFeed}
-      />
     </div>
   )
 }

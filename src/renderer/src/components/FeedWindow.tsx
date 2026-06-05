@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useState } from 'react'
 import type { CommitFeed, CommitFeedEntry } from '../../../shared/types'
 
 function CommitEntry({ entry }: { entry: CommitFeedEntry }): JSX.Element {
@@ -35,21 +36,50 @@ function CommitEntry({ entry }: { entry: CommitFeedEntry }): JSX.Element {
   )
 }
 
-interface Props {
-  open: boolean
-  feed: CommitFeed | null
-  loading: boolean
-  onClose: () => void
-}
+/** Standalone activity feed rendered inside its own docked window. Fetches and
+ *  polls independently of the main command-center window. */
+export default function FeedWindow(): JSX.Element {
+  const [feed, setFeed] = useState<CommitFeed | null>(null)
+  const [loading, setLoading] = useState(true)
 
-export default function CommitFeedPanel({ open, feed, loading, onClose }: Props): JSX.Element {
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const repos = await window.api.listRepos()
+      setFeed(await window.api.getCommitFeed(repos))
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    load()
+    // Refresh every 20s while visible so AI summaries land as ollama finishes,
+    // and refresh immediately whenever the window is re-shown. Skip work while
+    // the window is hidden — the OS reports it via the Page Visibility API.
+    const poll = window.setInterval(() => {
+      if (document.visibilityState === 'visible') load()
+    }, 20000)
+    const onVisible = (): void => {
+      if (document.visibilityState === 'visible') load()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      window.clearInterval(poll)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [load])
+
   return (
-    <div className={`feed-panel${open ? ' feed-panel--open' : ''}`} aria-hidden={!open}>
+    <div className="feed-window">
       <div className="feed-header">
         <div className="feed-header-left">
           <span className="feed-title">Activity Feed</span>
           {feed?.aiAvailable && (
-            <span className="feed-ai-badge" title={`Summaries powered by ${feed.aiModel} via ollama`}>
+            <span
+              className="feed-ai-badge"
+              title={`Summaries powered by ${feed.aiModel} via ollama`}
+            >
               AI
             </span>
           )}
@@ -59,13 +89,10 @@ export default function CommitFeedPanel({ open, feed, loading, onClose }: Props)
             </span>
           )}
         </div>
-        <button className="feed-close icon-btn" onClick={onClose} title="Close activity feed">
-          ✕
-        </button>
       </div>
 
       <div className="feed-body">
-        {loading && (
+        {loading && !feed && (
           <div className="feed-loading">
             <span className="feed-dot" />
             <span className="feed-dot" />
@@ -77,7 +104,7 @@ export default function CommitFeedPanel({ open, feed, loading, onClose }: Props)
           <div className="feed-empty">No recent commits found.</div>
         )}
 
-        {!loading && feed && feed.entries.length > 0 && (
+        {feed && feed.entries.length > 0 && (
           <>
             {feed.aiAvailable && (
               <div className="feed-ai-notice">

@@ -1742,29 +1742,16 @@ body {
   background: #7fb6ff;
 }
 
-/* ---------- Activity Feed Panel ---------- */
-.feed-panel {
-  position: fixed;
-  top: 46px; /* sit below the toolbar so buttons are never covered */
-  right: 0;
-  bottom: 0;
-  width: 300px;
-  background: rgba(16, 18, 24, 0.98);
-  backdrop-filter: blur(28px) saturate(1.5);
-  -webkit-backdrop-filter: blur(28px) saturate(1.5);
-  border-left: 1px solid var(--hairline);
+/* ---------- Activity Feed Window ---------- */
+/* The feed renders inside its own frameless window docked beside the main one,
+   so it fills that window's viewport rather than sliding over the app content. */
+.feed-window {
   display: flex;
   flex-direction: column;
-  transform: translateX(100%);
-  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1),
-    box-shadow 0.28s cubic-bezier(0.4, 0, 0.2, 1);
-  z-index: 200;
-  box-shadow: none;
-}
-
-.feed-panel--open {
-  transform: translateX(0);
-  box-shadow: -10px 0 40px rgba(0, 0, 0, 0.5);
+  height: 100vh;
+  width: 100vw;
+  background: #14161b;
+  border-left: 1px solid var(--hairline);
 }
 
 .feed-header {
@@ -1812,12 +1799,6 @@ body {
   border-radius: 4px;
   padding: 1px 6px;
   text-transform: uppercase;
-}
-
-.feed-close {
-  width: 26px;
-  height: 26px;
-  font-size: 11px;
 }
 
 .feed-body {

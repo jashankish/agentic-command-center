@@ -60,7 +60,17 @@ const api = {
     ipcRenderer.invoke('standup:get', paths, sinceIso),
   getSystemStats: (): Promise<SystemStats> => ipcRenderer.invoke('system:get'),
   getCalendar: (): Promise<CalendarData> => ipcRenderer.invoke('calendar:get'),
-  getCommitFeed: (paths: string[]): Promise<CommitFeed> => ipcRenderer.invoke('feed:get', paths)
+  getCommitFeed: (paths: string[]): Promise<CommitFeed> => ipcRenderer.invoke('feed:get', paths),
+
+  // Show / hide the docked activity-feed window; resolves to the new open state.
+  toggleFeed: (): Promise<boolean> => ipcRenderer.invoke('feed:toggle'),
+  // Fires when the feed window is closed/destroyed externally (e.g. ⌘W) so the
+  // main window can clear its toolbar toggle. Returns an unsubscribe function.
+  onFeedClosed: (cb: () => void): (() => void) => {
+    const handler = (): void => cb()
+    ipcRenderer.on('feed:closed', handler)
+    return () => ipcRenderer.removeListener('feed:closed', handler)
+  }
 }
 
 contextBridge.exposeInMainWorld('api', api)
