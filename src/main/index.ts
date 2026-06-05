@@ -10,6 +10,9 @@ app.setName('Agentic Command Center')
 
 /** Width of the docked activity-feed window. */
 const FEED_WIDTH = 320
+/** Gap between the main window and the feed so each window's native rounded
+ *  corners stay clear of the other instead of colliding edge-to-edge. */
+const FEED_GAP = 8
 
 let mainWindow: BrowserWindow | null = null
 let feedWindow: BrowserWindow | null = null
@@ -27,7 +30,7 @@ function lockDownNavigation(win: BrowserWindow): void {
   })
 }
 
-/** Pin the feed flush against the main window's right edge, matching its height.
+/** Dock the feed just off the main window's right edge, matching its height.
  *  Falls back to docking on the left when the main window sits too close to the
  *  right edge of its display to fit the feed. The main window is never moved or
  *  resized — the feed is an independent surface that extends beyond it. */
@@ -35,9 +38,9 @@ function positionFeedWindow(): void {
   if (!mainWindow || !feedWindow || feedWindow.isDestroyed()) return
   const b = mainWindow.getBounds()
   const { workArea } = screen.getDisplayMatching(b)
-  let x = b.x + b.width
+  let x = b.x + b.width + FEED_GAP
   if (x + FEED_WIDTH > workArea.x + workArea.width) {
-    x = Math.max(workArea.x, b.x - FEED_WIDTH)
+    x = Math.max(workArea.x, b.x - FEED_WIDTH - FEED_GAP)
   }
   feedWindow.setBounds({ x, y: b.y, width: FEED_WIDTH, height: b.height })
 }
@@ -47,7 +50,7 @@ function createFeedWindow(): BrowserWindow {
   const win = new BrowserWindow({
     width: FEED_WIDTH,
     height: b.height,
-    x: b.x + b.width,
+    x: b.x + b.width + FEED_GAP,
     y: b.y,
     // Child of the main window: it stays grouped with it (hides on minimize,
     // closes with the app) and always renders above it, but Electron does not
@@ -55,9 +58,8 @@ function createFeedWindow(): BrowserWindow {
     parent: mainWindow!,
     show: false,
     frame: false,
-    // Square corners so the left edge butts cleanly against the main window
-    // instead of leaving a rounded-corner notch between the two surfaces.
-    roundedCorners: false,
+    // Keep the default native rounded corners (roundedCorners defaults to true
+    // for frameless windows) so the feed matches the main window's rounded edges.
     resizable: false,
     minimizable: false,
     maximizable: false,

@@ -1744,14 +1744,15 @@ body {
 
 /* ---------- Activity Feed Window ---------- */
 /* The feed renders inside its own frameless window docked beside the main one,
-   so it fills that window's viewport rather than sliding over the app content. */
+   so it fills that window's viewport rather than sliding over the app content.
+   The window itself carries native rounded corners + shadow (like the main
+   window), so no CSS border/radius is needed here. */
 .feed-window {
   display: flex;
   flex-direction: column;
   height: 100vh;
   width: 100vw;
   background: #14161b;
-  border-left: 1px solid var(--hairline);
 }
 
 .feed-header {
