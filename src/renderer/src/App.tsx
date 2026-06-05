@@ -31,7 +31,8 @@ import {
   IconGrid,
   IconSearch,
   IconClipboard,
-  IconInfo
+  IconInfo,
+  IconActivity
 } from './components/icons'
 import { deriveState } from './lib/status'
 import { checkNotifications, requestNotifyPermission } from './lib/notify'
@@ -62,6 +63,9 @@ export default function App(): JSX.Element {
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [groupEditPath, setGroupEditPath] = useState<string | null>(null)
   const [infoOpen, setInfoOpen] = useState(false)
+  // Whether the separate, docked feed window is currently open. The main process
+  // owns the real state; this just drives the toolbar toggle's highlight.
+  const [feedOpen, setFeedOpen] = useState(false)
 
   const flash = useCallback((msg: string) => {
     setToast(msg)
@@ -113,6 +117,12 @@ export default function App(): JSX.Element {
   const loadSystem = useCallback(async () => setSystem(await window.api.getSystemStats()), [])
   const loadCalendar = useCallback(async () => setCalendar(await window.api.getCalendar()), [])
 
+  // Open/close the docked feed window in the main process; it returns the
+  // resulting state (the single source of truth) which we mirror for the toggle.
+  const handleToggleFeed = useCallback(async () => {
+    setFeedOpen(await window.api.toggleFeed())
+  }, [])
+
   const reloadAll = useCallback(() => {
     refresh()
     loadDevServers()
@@ -121,6 +131,10 @@ export default function App(): JSX.Element {
     loadMeta()
     loadInbox()
   }, [refresh, loadDevServers, loadClaude, loadInsights, loadMeta, loadInbox])
+
+  // The feed window can be closed out from under us (e.g. ⌘W); clear the toggle
+  // highlight when the main process reports it gone.
+  useEffect(() => window.api.onFeedClosed(() => setFeedOpen(false)), [])
 
   useEffect(() => {
     reloadAll()
@@ -384,6 +398,13 @@ export default function App(): JSX.Element {
           <span className="brand-name">Agentic Command Center</span>
         </div>
         <div className="toolbar-actions">
+          <button
+            className={`icon-btn ${feedOpen ? 'active' : ''}`}
+            onClick={handleToggleFeed}
+            title={feedOpen ? 'Close activity feed' : 'Open activity feed'}
+          >
+            <IconActivity />
+          </button>
           <button className="icon-btn" onClick={() => setPaletteOpen(true)} title="Command palette (⌘K)">
             <IconSearch />
           </button>

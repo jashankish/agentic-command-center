@@ -12,6 +12,7 @@ import { discoverRepos } from './discover'
 import { getStandup } from './standup'
 import { getSystemStats } from './system'
 import { getCalendar } from './calendar'
+import { getCommitFeed } from './commitfeed'
 import {
   listRepos,
   addRepo,
@@ -53,6 +54,7 @@ export function registerIpc(): void {
   )
   ipcMain.handle('system:get', () => getSystemStats())
   ipcMain.handle('calendar:get', () => getCalendar())
+  ipcMain.handle('feed:get', (_e, paths: string[]) => getCommitFeed(paths))
 
   ipcMain.handle('view:get', () => getViewMode())
   ipcMain.handle('view:set', (_e, mode: ViewMode) => setViewMode(mode))
@@ -118,6 +120,8 @@ export function registerIpc(): void {
     if (!win) return false
     const next = !win.isAlwaysOnTop()
     win.setAlwaysOnTop(next, 'floating')
+    // Keep the docked feed window (a child of the main window) floating in step.
+    for (const child of win.getChildWindows()) child.setAlwaysOnTop(next, 'floating')
     return next
   })
 }
