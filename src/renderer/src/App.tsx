@@ -130,13 +130,10 @@ export default function App(): JSX.Element {
     }
   }, [])
 
-  const handleToggleFeed = useCallback(async () => {
+  const handleToggleFeed = useCallback(() => {
     const next = !feedOpenRef.current
     feedOpenRef.current = next
     setFeedOpen(next)
-    const baseWidth = 760
-    const panelWidth = 300
-    await window.api.setWindowWidth(next ? baseWidth + panelWidth : baseWidth)
     if (next) loadFeed()
   }, [loadFeed])
 

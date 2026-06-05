@@ -1745,7 +1745,7 @@ body {
 /* ---------- Activity Feed Panel ---------- */
 .feed-panel {
   position: fixed;
-  top: 0;
+  top: 46px; /* sit below the toolbar so buttons are never covered */
   right: 0;
   bottom: 0;
   width: 300px;

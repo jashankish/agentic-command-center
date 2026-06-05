@@ -60,8 +60,7 @@ const api = {
     ipcRenderer.invoke('standup:get', paths, sinceIso),
   getSystemStats: (): Promise<SystemStats> => ipcRenderer.invoke('system:get'),
   getCalendar: (): Promise<CalendarData> => ipcRenderer.invoke('calendar:get'),
-  getCommitFeed: (paths: string[]): Promise<CommitFeed> => ipcRenderer.invoke('feed:get', paths),
-  setWindowWidth: (width: number): Promise<void> => ipcRenderer.invoke('window:setWidth', width)
+  getCommitFeed: (paths: string[]): Promise<CommitFeed> => ipcRenderer.invoke('feed:get', paths)
 }
 
 contextBridge.exposeInMainWorld('api', api)

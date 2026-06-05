@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell, screen, ipcMain } from 'electron'
+import { app, BrowserWindow, shell, screen } from 'electron'
 import { join } from 'path'
 import { registerIpc } from './ipc'
 
@@ -72,15 +72,6 @@ function createWindow(): void {
 
 app.whenReady().then(() => {
   registerIpc()
-
-  ipcMain.handle('window:setWidth', (e, targetWidth: number) => {
-    const win = BrowserWindow.fromWebContents(e.sender)
-    if (!win) return
-    const { workAreaSize } = screen.getPrimaryDisplay()
-    const [, height] = win.getSize()
-    const clamped = Math.min(Math.max(targetWidth, 380), workAreaSize.width)
-    win.setSize(clamped, height, true)
-  })
 
   createWindow()
 
