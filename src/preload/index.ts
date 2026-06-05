@@ -13,7 +13,8 @@ import type {
   Inbox,
   Standup,
   SystemStats,
-  CalendarData
+  CalendarData,
+  CommitFeed
 } from '../shared/types'
 
 const api = {
@@ -58,7 +59,9 @@ const api = {
   getStandup: (paths: string[], sinceIso: string): Promise<Standup> =>
     ipcRenderer.invoke('standup:get', paths, sinceIso),
   getSystemStats: (): Promise<SystemStats> => ipcRenderer.invoke('system:get'),
-  getCalendar: (): Promise<CalendarData> => ipcRenderer.invoke('calendar:get')
+  getCalendar: (): Promise<CalendarData> => ipcRenderer.invoke('calendar:get'),
+  getCommitFeed: (paths: string[]): Promise<CommitFeed> => ipcRenderer.invoke('feed:get', paths),
+  setWindowWidth: (width: number): Promise<void> => ipcRenderer.invoke('window:setWidth', width)
 }
 
 contextBridge.exposeInMainWorld('api', api)

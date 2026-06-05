@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   RepoStatus,
   RepoInsights,
@@ -8,7 +8,8 @@ import type {
   RepoMeta,
   Inbox,
   SystemStats,
-  CalendarData
+  CalendarData,
+  CommitFeed
 } from '../../shared/types'
 import RepoBox from './components/RepoBox'
 import RepoCard, { type ActionKind } from './components/RepoCard'
@@ -23,6 +24,7 @@ import StandupDialog from './components/StandupDialog'
 import PromptDialog from './components/PromptDialog'
 import InfoDialog from './components/InfoDialog'
 import CommandPalette, { type Command } from './components/CommandPalette'
+import CommitFeedPanel from './components/CommitFeedPanel'
 import {
   IconRefresh,
   IconPlus,
@@ -31,7 +33,8 @@ import {
   IconGrid,
   IconSearch,
   IconClipboard,
-  IconInfo
+  IconInfo,
+  IconActivity
 } from './components/icons'
 import { deriveState } from './lib/status'
 import { checkNotifications, requestNotifyPermission } from './lib/notify'
@@ -62,6 +65,10 @@ export default function App(): JSX.Element {
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [groupEditPath, setGroupEditPath] = useState<string | null>(null)
   const [infoOpen, setInfoOpen] = useState(false)
+  const [feedOpen, setFeedOpen] = useState(false)
+  const [feed, setFeed] = useState<CommitFeed | null>(null)
+  const [feedLoading, setFeedLoading] = useState(false)
+  const feedOpenRef = useRef(feedOpen)
 
   const flash = useCallback((msg: string) => {
     setToast(msg)
@@ -113,6 +120,26 @@ export default function App(): JSX.Element {
   const loadSystem = useCallback(async () => setSystem(await window.api.getSystemStats()), [])
   const loadCalendar = useCallback(async () => setCalendar(await window.api.getCalendar()), [])
 
+  const loadFeed = useCallback(async () => {
+    setFeedLoading(true)
+    try {
+      const repos = await window.api.listRepos()
+      setFeed(await window.api.getCommitFeed(repos))
+    } finally {
+      setFeedLoading(false)
+    }
+  }, [])
+
+  const handleToggleFeed = useCallback(async () => {
+    const next = !feedOpenRef.current
+    feedOpenRef.current = next
+    setFeedOpen(next)
+    const baseWidth = 760
+    const panelWidth = 300
+    await window.api.setWindowWidth(next ? baseWidth + panelWidth : baseWidth)
+    if (next) loadFeed()
+  }, [loadFeed])
+
   const reloadAll = useCallback(() => {
     refresh()
     loadDevServers()
@@ -121,6 +148,11 @@ export default function App(): JSX.Element {
     loadMeta()
     loadInbox()
   }, [refresh, loadDevServers, loadClaude, loadInsights, loadMeta, loadInbox])
+
+  // Keep ref in sync so the interval closure always sees the latest value.
+  useEffect(() => {
+    feedOpenRef.current = feedOpen
+  }, [feedOpen])
 
   useEffect(() => {
     reloadAll()
@@ -142,10 +174,15 @@ export default function App(): JSX.Element {
       loadInsights()
       loadCalendar()
     }, 300000)
+    // Refresh the feed while it's open so summaries appear as ollama finishes.
+    const feedPoll = setInterval(() => {
+      if (feedOpenRef.current) loadFeed()
+    }, 20000)
     return () => {
       clearInterval(fast)
       clearInterval(medium)
       clearInterval(slow)
+      clearInterval(feedPoll)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -384,6 +421,13 @@ export default function App(): JSX.Element {
           <span className="brand-name">Agentic Command Center</span>
         </div>
         <div className="toolbar-actions">
+          <button
+            className={`icon-btn ${feedOpen ? 'active' : ''}`}
+            onClick={handleToggleFeed}
+            title={feedOpen ? 'Close activity feed' : 'Open activity feed'}
+          >
+            <IconActivity />
+          </button>
           <button className="icon-btn" onClick={() => setPaletteOpen(true)} title="Command palette (⌘K)">
             <IconSearch />
           </button>
@@ -554,6 +598,13 @@ export default function App(): JSX.Element {
       {infoOpen && <InfoDialog onClose={() => setInfoOpen(false)} />}
 
       {toast && <div className="toast">{toast}</div>}
+
+      <CommitFeedPanel
+        open={feedOpen}
+        feed={feed}
+        loading={feedLoading}
+        onClose={handleToggleFeed}
+      />
     </div>
   )
 }

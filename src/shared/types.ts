@@ -210,3 +210,29 @@ export interface CalendarData {
   available: boolean
   error?: string
 }
+
+/** A single commit entry in the live activity feed. */
+export interface CommitFeedEntry {
+  repoPath: string
+  repoName: string
+  hash: string
+  /** Original commit subject line. */
+  message: string
+  /** AI-generated summary (or raw message when AI is unavailable / cached). */
+  summary: string
+  author: string
+  /** ISO 8601 timestamp. */
+  date: string
+  /** Human "time ago" label. */
+  relative: string
+  /** Browsable web URL of the origin remote, or null. */
+  remoteUrl: string | null
+}
+
+export interface CommitFeed {
+  entries: CommitFeedEntry[]
+  /** True when an ollama model was detected. */
+  aiAvailable: boolean
+  /** Name of the ollama model being used, or null. */
+  aiModel: string | null
+}
