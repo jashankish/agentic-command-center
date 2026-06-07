@@ -6,6 +6,8 @@ The tool is designed as a macOS desktop app (Electron + React + TypeScript) that
 center** for every project you work on. Instead of juggling terminals, GitHub tabs, and Claude
 Code, it pulls all of it into one window: each repo's git status, CI result, open pull requests,
 Claude Code cost and sessions, running dev servers, your GitHub inbox, and your contribution graph.
+A pull-out **activity feed** adds a live, cross-repo stream of your latest commits — each summarized
+by a **local LLM** — so you can see what your agents have shipped at a glance.
 
 Everything is **read-only and local-first** — the app shells out to tools you already have (`git`,
 the [GitHub CLI](https://cli.github.com), Claude Code) and **never stores a single credential of its
@@ -32,6 +34,7 @@ rest keeps working.
   - [Compact view](#compact-view)
   - [Command palette (⌘K)](#command-palette-k)
   - [Standup digest](#standup-digest)
+  - [Activity feed](#activity-feed)
   - [GitHub inbox](#github-inbox)
   - [Claude Code Usage & cost](#claude-code-usage--cost)
   - [GitHub Contributions](#github-contributions)
@@ -60,6 +63,9 @@ rest keeps working.
 - Quick actions: open in **editor / Terminal / Finder / GitHub**.
 - **Favorite** (★) and **group** repos; the dashboard organizes into labeled sections.
 - **Compact view** — the classic colored-tile grid — toggleable from the toolbar.
+- **Activity feed** (pull-out) — a live, RSS-/social-style stream of recent commits across **every**
+  repo, each summarized by a **local LLM** ([ollama](https://ollama.com)); falls back to raw commit
+  messages when ollama isn't running.
 
 **Agentic / Claude Code**
 - Per-project **estimated cost** (today / this week / all-time) computed from local transcripts.
@@ -87,11 +93,13 @@ rest keeps working.
 | **Repo status / commit / push / fetch** | `git` on your `PATH`, plus your usual push auth (HTTPS credential helper or SSH key). |
 | **CI, PRs, issues, inbox, contribution graph** | [`gh`](https://cli.github.com) installed and signed in (`brew install gh && gh auth login`). |
 | **Claude usage bars + cost panel** | [Claude Code](https://claude.com/claude-code) installed and signed in on this machine. |
+| **Activity-feed AI summaries** | [ollama](https://ollama.com) running locally with any model pulled — *optional*; without it the feed shows raw commit messages. |
 | **Today's calendar event** | macOS Calendar with at least one account (grants an Automation prompt once). |
 | **Building from source** | Node.js ≥ 18 with npm. |
 
 Everything is **optional and independent** — missing `gh`, Claude Code, or Calendar only disables
-that specific panel.
+that specific panel, and without **ollama** the activity feed simply shows raw commit messages
+instead of AI summaries.
 
 ---
 
@@ -109,7 +117,7 @@ that specific panel.
    xattr -dr com.apple.quarantine "/Applications/Agentic Command Center.app"
    ```
 4. Launch it, click **+** to import repos, and (optionally) run `gh auth login` for the GitHub
-   panels.
+   panels and install [ollama](https://ollama.com) for AI-summarized activity-feed entries.
 
 ### Option B — Build it yourself
 
@@ -140,6 +148,7 @@ toolbar button anytime for an in-app legend of every icon plus the cost math.
 
 | Button | Does |
 |---|---|
+| 〰️ **Activity** | Slide out the [activity feed](#activity-feed) — recent commits across every repo (highlighted while open). |
 | 🔍 **Search** | Open the [command palette](#command-palette-k) (also **⌘K**). |
 | 📋 **Standup** | Open the [standup digest](#standup-digest). |
 | ℹ️ **Info** | Open the [info card](#info-card) — a legend for every symbol and the cost logic. |
@@ -210,6 +219,32 @@ The 📋 button opens a digest of **your own commits across all repos** over **T
 clipboard — handy for standups or work logs. It also shows your estimated Claude spend over the same
 window.
 
+### Activity feed
+
+The 〰️ button (first in the toolbar's action row) slides out a **live activity feed** — a real-time,
+RSS-/social-style stream of the **most recent commits across every imported repo**, newest first, so
+you can see what your agents have been building at a glance.
+
+- **Each entry** shows the **repo**, a **relative timestamp**, the commit **summary**, the **author**,
+  and a short **hash** that links straight to the commit on GitHub. When a summary differs from the
+  raw commit subject, the original is shown underneath in monospace.
+- **Local-LLM summaries.** When [ollama](https://ollama.com) is running, each commit message is
+  rewritten into one clear, specific sentence — ideal when agent-authored commits are terse or
+  auto-generated. The header shows an **AI** badge with the model name; with no ollama it shows a
+  **raw** badge and the original subjects. The app prefers a small, fast local model (e.g.
+  `llama3.2:3b`, `qwen2.5:3b`, `phi3:mini`). Summaries are generated **in the background** (commits
+  appear instantly, then upgrade as the model finishes), **cached per commit hash** so the model is
+  never asked twice, and **never leave your machine**.
+- **Its own window.** The feed renders in a separate, frameless window docked just off the main
+  window's edge — it **extends beyond** the app without resizing it or covering any content, carries
+  the same native rounded corners, **follows** the window as you move or resize it, and **floats with
+  it** when pinned. Click the 〰️ button again to slide it away.
+- **Live.** While open it refreshes **every 20 seconds** (and immediately whenever re-shown), so new
+  commits and freshly-finished summaries stream in on their own.
+
+It reads the 5 most-recent non-merge commits per repo (across all branches), merges them, and shows
+the latest 40 entries.
+
 ### GitHub inbox
 
 Appears below the repositories when `gh` is signed in and you have items:
@@ -276,6 +311,7 @@ token. Here is exactly what is read and how:
 | **CI / PRs / issues / inbox** | `gh run list`, `gh pr list`, `gh issue list`, `gh search prs`, `gh api notifications` | `gh`'s own stored token | Yes, by `gh` |
 | **Claude quota bars** | HTTPS GET to Claude's OAuth **usage** endpoint (`api.anthropic.com/api/oauth/usage`) | Claude Code's OAuth token, **read** from the macOS Keychain (`Claude Code-credentials`) or `~/.claude/.credentials.json` | Yes, one request |
 | **Claude cost & sessions & plans** | **Reading local files** in `~/.claude/projects/**/*.jsonl` and `~/.claude/plans/*.md` | None — local files only | **No** |
+| **Activity feed** | `git log` per repo via `simple-git`, plus one-line commit **summaries from a local [ollama](https://ollama.com) model** (`ollama run`) | None — local model | **No** |
 | **Dev servers** | `lsof` for listening TCP ports, mapped to repos by working directory | None | No |
 | **Today's calendar** | AppleScript query against Calendar.app | macOS Automation permission (prompted once) | No |
 | **CPU / RAM** | Node's `os` module | None | No |
@@ -310,6 +346,7 @@ rate-limited sources are polled gently:
 | CI/PR/issue insights, calendar | every 5 min |
 | Claude quota bars | every 3 min (2-min cache + 429 backoff in the main process) |
 | Contribution graph | on day-rollover + ~every 10 min |
+| Activity feed | every 20s while open (and on re-show); summaries fill in as ollama finishes |
 
 `gh`-backed data is cached per repo (insights 5 min, inbox 2 min) to stay well under GitHub's rate
 limits. You can always force an immediate refresh with the ↻ button.
@@ -375,12 +412,19 @@ type-checked end to end.
 | `getInbox` | notifications + your PRs via `gh` (`inbox.ts`) |
 | `listDevServers` / `getScripts` / `runScript` | `lsof` mapping / package.json scripts / run (`devservers.ts`, `actions.ts`) |
 | `getStandup` | cross-repo commit digest (`standup.ts`) |
+| `getCommitFeed` / `toggleFeed` | activity-feed commits + local-LLM summaries / show-hide the docked feed window (`commitfeed.ts`, `index.ts`) |
 | `getCalendar` / `getSystemStats` | Calendar via AppleScript / CPU+RAM (`calendar.ts`, `system.ts`) |
 | `scanForRepos` | scan a folder for `.git` repos (`discover.ts`) |
 | `getRepoMeta` / `setRepoMeta` / `exportSettings` / `importSettings` | persistence (`store.ts`) |
 
 A pure function, `deriveState()` in `src/renderer/src/lib/status.ts`, turns a repo's raw status into
 its `{ color, badge, detail, canSync, needsAttention }` so the color/label rules live in one place.
+
+The **activity feed** runs in a *second* `BrowserWindow` — a frameless child docked to the main
+window's edge — that loads the same renderer bundle with a `#feed` hash and mounts only the feed
+(`FeedWindow.tsx`). It talks to the main process over the same `window.api`; `commitfeed.ts` reads
+the commits and summarizes each one with a local [ollama](https://ollama.com) model in the background
+(cached per commit hash), falling back to the raw message when no model is available.
 
 ---
 
@@ -393,7 +437,8 @@ Designed to be safe to open-source and run on any developer's machine:
   `.gitignore` also blocks common secret files as a contributor safety net.
 - **Locked-down renderer.** `contextIsolation: true`, `nodeIntegration: false`, **`sandbox: true`**,
   `webSecurity: true`, and a strict CSP (`default-src 'self'; script-src 'self'`). The renderer can
-  only reach the main process through the small, typed `window.api` surface.
+  only reach the main process through the small, typed `window.api` surface. The docked activity-feed
+  window uses the **same** `webPreferences` and CSP.
 - **No untrusted navigation.** In-app navigation is blocked; new-window requests are denied. Only
   `https` links and `localhost` dev-server links are handed to the system browser.
 - **Read-only Claude token use.** The usage token is read to make one request and never stored,
@@ -413,7 +458,7 @@ agentic-command-center/
 ├── src/
 │   ├── shared/types.ts         # all shared IPC types
 │   ├── main/                   # main process (Node) — all privileged work
-│   │   ├── index.ts            # window, lifecycle, lockdown
+│   │   ├── index.ts            # windows (main + docked feed), lifecycle, lockdown
 │   │   ├── ipc.ts              # IPC channel registrations
 │   │   ├── git.ts              # status / commit+push / fetch / remote parsing
 │   │   ├── gh.ts               # shared gh-binary PATH resolution
@@ -425,6 +470,7 @@ agentic-command-center/
 │   │   ├── devservers.ts       # lsof dev-server detection + package.json scripts
 │   │   ├── actions.ts          # open in editor/terminal/Finder/GitHub, run scripts
 │   │   ├── standup.ts          # cross-repo commit digest
+│   │   ├── commitfeed.ts       # activity feed: recent commits + local-LLM (ollama) summaries
 │   │   ├── discover.ts         # scan a folder for git repos
 │   │   ├── system.ts           # CPU/memory snapshot
 │   │   ├── calendar.ts         # today's macOS Calendar events (AppleScript)
@@ -435,7 +481,8 @@ agentic-command-center/
 │       ├── App.tsx             # state, polling, orchestration of every panel
 │       ├── components/         # HealthBar, RepoCard, RepoBox, InboxPanel, ClaudePanel,
 │       │                       #   CommandPalette, StandupDialog, DiscoverDialog, InfoDialog,
-│       │                       #   PromptDialog, CommitDialog, ContributionGraph, UsageWidget, icons
+│       │                       #   PromptDialog, CommitDialog, ContributionGraph, UsageWidget,
+│       │                       #   FeedWindow (docked activity feed), icons
 │       └── lib/                # status.ts (deriveState), format.ts, notify.ts
 ├── out/                        # build output (gitignored)
 └── dist/                       # packaged .dmg (gitignored)
@@ -572,6 +619,31 @@ outside your repos, or from unrecognized commands, are intentionally hidden to a
 
 **Which editor does "Open in editor" use?**
 The first of **Cursor → VS Code → Zed → Sublime Text** that's installed.
+
+### Activity feed
+
+**Do I need ollama for the activity feed?**
+No. Without it the feed still works — it just shows the raw commit subjects (with a **raw** badge).
+Install [ollama](https://ollama.com) and pull any model (e.g. `ollama pull llama3.2:3b`) and the feed
+rewrites each commit into a clear one-line summary, with an **AI** badge naming the model.
+
+**Does the feed send my commits or code anywhere?**
+No. Commits are read locally with `git`, and summaries are produced by a model running **on your
+machine** via ollama. The feed makes no network request of its own — no commit data leaves your
+computer.
+
+**Which commits show up, and how many?**
+The 5 most-recent non-merge commits from each imported repo (across all branches), merged and sorted
+newest-first, capped at 40 entries. Repos with a GitHub remote get clickable commit hashes.
+
+**Why do summaries appear a moment after the commits?**
+They're generated in the background so the feed never blocks on the model: entries appear instantly
+with their raw messages and upgrade to AI summaries as ollama finishes. Each result is cached by
+commit hash, so reopening the feed is instant and the model is never asked twice.
+
+**Does opening the feed resize or cover the main window?**
+No. It opens as its own window docked beside the app, leaving the main window's size, position, and
+content untouched; it follows the app as you move it and floats with it when pinned.
 
 ### Privacy, storage & platform
 
