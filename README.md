@@ -18,7 +18,11 @@ rest keeps working.
   <img src="docs/screenshot.png" alt="Agentic Command Center dashboard showing repository cards, the health bar, Claude Code usage, and the GitHub contribution graph" width="420" />
 </p>
 
-<p align="center"><sub>Repository names and figures above are illustrative sample data.</sub></p>
+> **macOS only.** This app targets macOS exclusively. Several core features rely on macOS-specific
+> APIs: the Claude usage token is read from the **macOS Keychain**, calendar events use
+> **AppleScript**, dev-server detection uses **`lsof`**, and editor/Finder/Terminal launching uses
+> **`open -a`**. The prebuilt `.dmg` runs on Apple Silicon (arm64); Intel Mac users can build from
+> source with `npm run dist`. **Linux and Windows are not supported.**
 
 ---
 
