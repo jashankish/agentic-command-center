@@ -210,11 +210,19 @@ The toolbar layout toggle switches to the original **GitHub-Desktop-style grid**
 tiles (same status colors as above). Click any non-green tile to open the commit dialog and
 sync. Useful when you want a denser overview.
 
+<p align="center">
+  <img src="docs/screenshot-compact-view.png" alt="Compact view showing colored status tiles for all repos" width="420" />
+</p>
+
 ### Command palette (⌘K)
 
 Press **⌘K** (or the 🔍 button) for a fuzzy-searchable list. It includes **every action** — Import,
 Scan folder, Standup, Refresh, toggle view, Export/Import settings — plus a per-repo **Open in
 editor / Reveal in Finder / Open on GitHub** entry, so you can drive the whole app from the keyboard.
+
+<p align="center">
+  <img src="docs/screenshot-command-palette.png" alt="Command palette showing searchable list of actions and repos" width="420" />
+</p>
 
 ### Standup digest
 
@@ -222,6 +230,10 @@ The 📋 button opens a digest of **your own commits across all repos** over **T
 (filtered by your `git config user.email`). Click **Copy** to put a plain-text summary on your
 clipboard — handy for standups or work logs. It also shows your estimated Claude spend over the same
 window.
+
+<p align="center">
+  <img src="docs/screenshot-standup.png" alt="Standup digest showing recent commits grouped by repo with a Copy button" width="420" />
+</p>
 
 ### Activity feed
 
@@ -248,6 +260,10 @@ you can see what your agents have been building at a glance.
 
 It reads the 5 most-recent non-merge commits per repo (across all branches), merges them, and shows
 the latest 40 entries.
+
+<p align="center">
+  <img src="docs/screenshot-activity-feed.png" alt="Activity feed panel showing cross-repo commit stream with AI summaries, repo tags, timestamps, and authors" width="300" />
+</p>
 
 ### GitHub inbox
 
@@ -299,6 +315,10 @@ moment the local day rolls over so the newest column appears right after midnigh
 The **ℹ️** button opens a scrollable help dialog that renders the *actual* icons next to plain
 descriptions for every toolbar button, status color, CI badge, card chip, and quick action — plus a
 full explanation of the cost logic above. It's the fastest way for a new user to learn the UI.
+
+<p align="center">
+  <img src="docs/screenshot-info.png" alt="Info card dialog explaining every icon, status color, and cost calculation" width="420" />
+</p>
 
 ---
 
