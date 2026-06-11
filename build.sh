@@ -62,7 +62,7 @@ if [[ "$RELEASE" == true ]]; then
   else
     gh release create "$TAG" "$DMG" \
       --title "Agentic Command Center $VERSION" \
-      --notes "Automated release of Agentic Command Center $VERSION. Download the .dmg below, drag the app to Applications, then right-click → Open on first launch (the build is unsigned)."
+      --notes "Automated release of Agentic Command Center $VERSION. Download the .dmg below and drag the app to Applications. First launch: the build is ad-hoc signed (not notarized), so double-click the app once, click Done, then System Settings → Privacy & Security → Open Anyway. Or clear the quarantine flag instead: xattr -dr com.apple.quarantine '/Applications/Agentic Command Center.app'"
     echo "==> Created release $TAG with $DMG"
   fi
 fi

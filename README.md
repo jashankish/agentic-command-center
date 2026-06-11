@@ -115,11 +115,17 @@ instead of AI summaries.
    `Agentic.Command.Center-<version>-arm64.dmg`) from the
    [**Releases**](https://github.com/jashankish/agentic-command-center/releases) page.
 2. Open the `.dmg` and drag **Agentic Command Center** into **Applications**.
-3. **First launch (unsigned app).** It isn't notarized with an Apple Developer certificate, so
-   Gatekeeper warns once. Either **right-click → Open → Open**, or clear the quarantine flag:
+3. **First launch (ad-hoc signed app).** The build isn't notarized with an Apple Developer
+   certificate, so Gatekeeper blocks it once. Double-click the app (macOS says it *"could not
+   verify"* it — click **Done**), then open **System Settings → Privacy & Security**, scroll down,
+   and click **Open Anyway**. On macOS 14 and earlier, **right-click → Open → Open** also works.
+   Or skip the dialog entirely by clearing the quarantine flag:
    ```bash
    xattr -dr com.apple.quarantine "/Applications/Agentic Command Center.app"
    ```
+   > Seeing **"damaged and can't be opened"** instead? That's a `.dmg` from **v1.2.0 or older**,
+   > whose app bundle had no valid signature — grab v1.2.1+ (or run the `xattr` command above,
+   > which clears it too).
 4. Launch it, click **+** to import repos, and (optionally) run `gh auth login` for the GitHub
    panels and install [ollama](https://ollama.com) for AI-summarized activity-feed entries.
 
@@ -136,9 +142,10 @@ npm run dist       # package a .dmg for your Mac's architecture → dist/
 open dist/
 ```
 
-A self-built `.dmg` is also unsigned, so the same first-launch step applies. The
-[`build.sh`](#building--releasing) helper wraps `npm run dist` and can commit/push/release in one
-command.
+A self-built `.dmg` is ad-hoc signed too (an `afterPack` hook runs `codesign -s -`), but macOS only
+quarantines files downloaded from a browser — a locally built app launches without the Gatekeeper
+step. The [`build.sh`](#building--releasing) helper wraps `npm run dist` and can commit/push/release
+in one command.
 
 ---
 
