@@ -704,3 +704,9 @@ Yes by default — click the 📌 pin button in the toolbar to toggle it.
 | **"Open in editor" does nothing** | Install one of Cursor, VS Code, Zed, or Sublime Text. |
 
 ---
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
+
+---
