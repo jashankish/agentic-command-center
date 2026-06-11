@@ -73,7 +73,7 @@ export interface RepoInsights {
   error?: string
 }
 
-export type ClaudeModelClass = 'opus' | 'sonnet' | 'haiku' | 'other'
+export type ClaudeModelClass = 'opus' | 'sonnet' | 'haiku' | 'fable' | 'other'
 
 /** Per-project Claude Code activity, derived from local transcript files. */
 export interface ClaudeProjectActivity {

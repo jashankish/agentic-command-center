@@ -8,19 +8,26 @@ import type {
 } from '../shared/types'
 import { redactError } from './redact'
 
-// Per-MTok USD pricing by model class (input / output / cache-write / cache-read).
-// Unknown models fall back to Sonnet rates. These are estimates — the endpoint in
-// usage.ts remains the source of truth for quota; this is a cost approximation.
-const PRICING: Record<Exclude<ClaudeModelClass, 'other'>, {
+// Per-MTok USD pricing matched against the model id, most specific rule first.
+// Cache rates derive from the input rate (5m write 1.25×, 1h write 2×, read 0.1×),
+// which matches every published Claude price. Unknown models fall back to Sonnet
+// rates. These are estimates — the endpoint in usage.ts remains the source of
+// truth for quota; this is a cost approximation.
+interface ModelPrice {
   in: number
   out: number
-  cacheWrite: number
-  cacheRead: number
-}> = {
-  opus: { in: 15, out: 75, cacheWrite: 18.75, cacheRead: 1.5 },
-  sonnet: { in: 3, out: 15, cacheWrite: 3.75, cacheRead: 0.3 },
-  haiku: { in: 0.8, out: 4, cacheWrite: 1.0, cacheRead: 0.08 }
 }
+
+const PRICE_RULES: { match: RegExp; cls: ClaudeModelClass; price: ModelPrice }[] = [
+  { match: /fable|mythos/, cls: 'fable', price: { in: 10, out: 50 } },
+  { match: /opus-4-[5-9]/, cls: 'opus', price: { in: 5, out: 25 } },
+  { match: /opus/, cls: 'opus', price: { in: 15, out: 75 } }, // legacy Opus 4.0/4.1
+  { match: /sonnet/, cls: 'sonnet', price: { in: 3, out: 15 } },
+  { match: /haiku-4/, cls: 'haiku', price: { in: 1, out: 5 } },
+  { match: /haiku/, cls: 'haiku', price: { in: 0.8, out: 4 } } // legacy Haiku 3.5
+]
+
+const FALLBACK_PRICE: ModelPrice = { in: 3, out: 15 }
 
 const PROJECTS_DIR = join(homedir(), '.claude', 'projects')
 const PLANS_DIR = join(homedir(), '.claude', 'plans')
@@ -36,24 +43,35 @@ interface Usage {
   output_tokens?: number
   cache_creation_input_tokens?: number
   cache_read_input_tokens?: number
+  cache_creation?: {
+    ephemeral_5m_input_tokens?: number
+    ephemeral_1h_input_tokens?: number
+  }
 }
 
-function classify(model: string | undefined): ClaudeModelClass {
-  if (!model) return 'other'
-  const m = model.toLowerCase()
-  if (m.includes('opus')) return 'opus'
-  if (m.includes('sonnet')) return 'sonnet'
-  if (m.includes('haiku')) return 'haiku'
-  return 'other'
+function modelInfo(model: string | undefined): { cls: ClaudeModelClass; price: ModelPrice } {
+  if (model) {
+    const m = model.toLowerCase()
+    for (const rule of PRICE_RULES) {
+      if (rule.match.test(m)) return { cls: rule.cls, price: rule.price }
+    }
+  }
+  return { cls: 'other', price: FALLBACK_PRICE }
 }
 
-function costOf(cls: ClaudeModelClass, u: Usage): number {
-  const p = cls === 'other' ? PRICING.sonnet : PRICING[cls]
+/** Cache-write tokens weighted by TTL premium, in input-price units. */
+function cacheWriteWeighted(u: Usage): number {
+  const m5 = u.cache_creation?.ephemeral_5m_input_tokens ?? 0
+  const h1 = u.cache_creation?.ephemeral_1h_input_tokens ?? 0
+  if (m5 + h1 > 0) return m5 * 1.25 + h1 * 2
+  return (u.cache_creation_input_tokens ?? 0) * 1.25
+}
+
+function costOf(price: ModelPrice, u: Usage): number {
   return (
-    ((u.input_tokens ?? 0) * p.in +
-      (u.output_tokens ?? 0) * p.out +
-      (u.cache_creation_input_tokens ?? 0) * p.cacheWrite +
-      (u.cache_read_input_tokens ?? 0) * p.cacheRead) /
+    (((u.input_tokens ?? 0) + cacheWriteWeighted(u) + (u.cache_read_input_tokens ?? 0) * 0.1) *
+      price.in +
+      (u.output_tokens ?? 0) * price.out) /
     1e6
   )
 }
@@ -73,11 +91,20 @@ function encodedNames(repoPath: string): string[] {
 }
 
 function emptyModels(): Record<ClaudeModelClass, number> {
-  return { opus: 0, sonnet: 0, haiku: 0, other: 0 }
+  return { opus: 0, sonnet: 0, haiku: 0, fable: 0, other: 0 }
 }
 
-/** Aggregate one project's transcript folder into a per-project activity record. */
-async function readProject(repoPath: string, dir: string): Promise<ClaudeProjectActivity | null> {
+/**
+ * Aggregate one project's transcript folder into a per-project activity record.
+ * `seen` spans the whole compute pass: Claude Code writes several lines for the
+ * same API response (streamed updates, and history copied into forked/resumed
+ * session files), all repeating the same usage object — count each once.
+ */
+async function readProject(
+  repoPath: string,
+  dir: string,
+  seen: Set<string>
+): Promise<ClaudeProjectActivity | null> {
   let files: string[]
   try {
     files = (await readdir(dir)).filter((f) => f.endsWith('.jsonl'))
@@ -119,7 +146,11 @@ async function readProject(repoPath: string, dir: string): Promise<ClaudeProject
 
     for (const line of content.split('\n')) {
       if (!line) continue
-      let obj: { message?: { usage?: Usage; model?: string }; timestamp?: string }
+      let obj: {
+        message?: { usage?: Usage; model?: string; id?: string }
+        requestId?: string
+        timestamp?: string
+      }
       try {
         obj = JSON.parse(line)
       } catch {
@@ -127,8 +158,13 @@ async function readProject(repoPath: string, dir: string): Promise<ClaudeProject
       }
       const usage = obj.message?.usage
       if (!usage) continue
-      const cls = classify(obj.message?.model)
-      const cost = costOf(cls, usage)
+      if (obj.message?.id && obj.requestId) {
+        const key = `${obj.message.id}:${obj.requestId}`
+        if (seen.has(key)) continue
+        seen.add(key)
+      }
+      const { cls, price } = modelInfo(obj.message?.model)
+      const cost = costOf(price, usage)
       proj.costTotal += cost
       proj.models[cls] += cost
 
@@ -179,10 +215,13 @@ async function compute(repoPaths: string[]): Promise<ClaudeActivity> {
     const existing = new Set(await readdir(PROJECTS_DIR))
     result.available = true
 
+    // One dedupe set across every project so history copied between session
+    // files (forks/resumes) is never double-counted.
+    const seen = new Set<string>()
     for (const repoPath of repoPaths) {
       const match = encodedNames(repoPath).find((n) => existing.has(n))
       if (!match) continue
-      const proj = await readProject(repoPath, join(PROJECTS_DIR, match))
+      const proj = await readProject(repoPath, join(PROJECTS_DIR, match), seen)
       if (!proj) continue
       result.projects.push(proj)
       result.costToday += proj.costToday

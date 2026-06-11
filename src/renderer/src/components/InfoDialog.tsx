@@ -132,45 +132,70 @@ export default function InfoDialog({ onClose }: { onClose: () => void }): JSX.El
             + cacheRead×rate<sub>cr</sub>) ÷ 1,000,000
           </div>
 
-          <p className="info-p">Per-million-token rates by model (cache-write / cache-read shown too):</p>
+          <p className="info-p">
+            Per-million-token rates by model. Cache writes bill by TTL — 1.25× the input rate for
+            the 5-minute cache, 2× for the 1-hour cache:
+          </p>
           <table className="info-table">
             <thead>
               <tr>
                 <th>Model</th>
                 <th>Input</th>
                 <th>Output</th>
-                <th>Cache write</th>
+                <th>Cache write (5m / 1h)</th>
                 <th>Cache read</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td>Opus</td>
+                <td>Fable 5</td>
+                <td>$10</td>
+                <td>$50</td>
+                <td>$12.50 / $20</td>
+                <td>$1.00</td>
+              </tr>
+              <tr>
+                <td>Opus 4.5+</td>
+                <td>$5</td>
+                <td>$25</td>
+                <td>$6.25 / $10</td>
+                <td>$0.50</td>
+              </tr>
+              <tr>
+                <td>Opus 4 / 4.1</td>
                 <td>$15</td>
                 <td>$75</td>
-                <td>$18.75</td>
+                <td>$18.75 / $30</td>
                 <td>$1.50</td>
               </tr>
               <tr>
                 <td>Sonnet</td>
                 <td>$3</td>
                 <td>$15</td>
-                <td>$3.75</td>
+                <td>$3.75 / $6</td>
                 <td>$0.30</td>
               </tr>
               <tr>
-                <td>Haiku</td>
+                <td>Haiku 4.5</td>
+                <td>$1</td>
+                <td>$5</td>
+                <td>$1.25 / $2</td>
+                <td>$0.10</td>
+              </tr>
+              <tr>
+                <td>Haiku 3.5</td>
                 <td>$0.80</td>
                 <td>$4</td>
-                <td>$1.00</td>
+                <td>$1.00 / $1.60</td>
                 <td>$0.08</td>
               </tr>
             </tbody>
           </table>
           <p className="info-note">
             The model is read from each message; anything unrecognized is priced at Sonnet rates.
-            Cached input is billed at the much cheaper cache-read rate, which is why heavy sessions
-            can still be inexpensive.
+            Claude Code writes several transcript lines for the same API response (streamed updates,
+            forked-session history) — those are counted once. Cached input is billed at the much
+            cheaper cache-read rate, which is why heavy sessions can still be inexpensive.
           </p>
 
           <h3 className="info-h">Today · This week · All-time</h3>

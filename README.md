@@ -291,13 +291,19 @@ records its token usage; each message's cost is:
 cost = (input×rate_in + output×rate_out + cacheWrite×rate_cw + cacheRead×rate_cr) ÷ 1,000,000
 ```
 
-Per-million-token rates by model (anything unrecognized is priced at Sonnet rates):
+Claude Code often writes several transcript lines for the same API response (streamed updates, and
+history copied into forked/resumed sessions), so lines repeating the same message + request id are
+counted once. Per-million-token rates by model (anything unrecognized is priced at Sonnet rates;
+cache writes bill at 1.25× the input rate for the 5-minute cache and 2× for the 1-hour cache):
 
-| Model | Input | Output | Cache write | Cache read |
+| Model | Input | Output | Cache write (5m / 1h) | Cache read |
 |---|---|---|---|---|
-| Opus | $15 | $75 | $18.75 | $1.50 |
-| Sonnet | $3 | $15 | $3.75 | $0.30 |
-| Haiku | $0.80 | $4 | $1.00 | $0.08 |
+| Fable 5 | $10 | $50 | $12.50 / $20 | $1.00 |
+| Opus 4.5+ | $5 | $25 | $6.25 / $10 | $0.50 |
+| Opus 4 / 4.1 | $15 | $75 | $18.75 / $30 | $1.50 |
+| Sonnet | $3 | $15 | $3.75 / $6 | $0.30 |
+| Haiku 4.5 | $1 | $5 | $1.25 / $2 | $0.10 |
+| Haiku 3.5 | $0.80 | $4 | $1.00 / $1.60 | $0.08 |
 
 The three totals differ only by which messages are counted, by timestamp: **Today** = since local
 midnight, **This week** = the rolling last 7 days, **All-time** = every message in that project's
