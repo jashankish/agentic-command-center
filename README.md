@@ -17,7 +17,7 @@ own**. If a tool isn't installed or signed in, that one panel simply shows as un
 rest keeps working.
 
 <p align="center">
-  <img src="docs/screenshot.png" alt="Agentic Command Center dashboard showing repository cards, the health bar, Claude Code usage, and the GitHub contribution graph" width="420" />
+  <img src="docs/screenshot.png" alt="Agentic Command Center dashboard: the health bar leading with a 'waiting on you' chip, grouped repository cards, the GitHub inbox, Claude Code quota bars and cost, and the GitHub contribution graph" width="420" />
 </p>
 
 > **macOS only.** This app targets macOS exclusively. Several core features rely on macOS-specific
@@ -304,6 +304,11 @@ the latest 40 entries.
 The ⌨ button slides out a second docked window listing **every open terminal** — each Terminal.app
 tab and iTerm2 session — with its title, repo, and what's running in it. It exists to answer one
 question at a glance: **which of my Claude sessions needs me right now?**
+
+<p align="center">
+  <img src="docs/screenshot-terminals.png" alt="Terminals panel listing open terminals with live Claude session states — needs-permission, your-turn, and working badges with the pending tool, telemetry chips, an Elsewhere section for tmux/IDE sessions, preference toggles, and the exact-states hooks card" width="330" />
+  <img src="docs/screenshot-terminals-events.png" alt="The terminals panel's Events tab — a newest-first timeline of agent lifecycle moments: session started, prompt submitted, asked to use a tool, turn finished, session ended" width="330" />
+</p>
 
 - **Live Claude session badges.** Terminals running Claude Code show their state: **working**,
   **your turn** (turn finished / waiting for input), or **needs permission** — including which tool

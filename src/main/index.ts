@@ -1,3 +1,4 @@
+import './profile'
 import { app, BrowserWindow, shell, screen, ipcMain } from 'electron'
 import { join } from 'path'
 import { initAgentEvents } from './agentevents'

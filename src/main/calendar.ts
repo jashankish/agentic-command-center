@@ -27,6 +27,9 @@ end tell
 return output`
 
 async function compute(): Promise<CalendarData> {
+  // Test/demo harness: a demo profile must never read the user's real
+  // calendar (event titles are personal data).
+  if (process.env.ACC_DEMO) return { events: [], available: false }
   try {
     const { stdout } = await execFileAsync('/usr/bin/osascript', ['-e', SCRIPT], {
       timeout: 8000,

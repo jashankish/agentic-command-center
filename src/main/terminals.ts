@@ -1,4 +1,5 @@
 import { execFile } from 'child_process'
+import { readFileSync } from 'fs'
 import { promisify } from 'util'
 import type {
   AutomationState,
@@ -138,6 +139,26 @@ function repoOf(repoPaths: string[], cwd: string | null): string | null {
   return repoPaths.find((r) => cwd === r || cwd.startsWith(r + '/')) ?? null
 }
 
+// Test/demo harness: a demo profile renders fixture surfaces instead of the
+// user's real terminals (real tab titles are personal data). The fixture file
+// holds `{ terminal: RawSurface[], iterm: RawSurface[] }`.
+function fixtureSurfaces(): { term: EnumResult; iterm: EnumResult } | null {
+  const file = process.env.ACC_DEMO_SURFACES
+  if (!file) return null
+  try {
+    const fix = JSON.parse(readFileSync(file, 'utf8')) as {
+      terminal?: RawSurface[]
+      iterm?: RawSurface[]
+    }
+    return {
+      term: { state: 'ok', surfaces: fix.terminal ?? [] },
+      iterm: { state: 'ok', surfaces: fix.iterm ?? [] }
+    }
+  } catch {
+    return null
+  }
+}
+
 async function compute(repoPaths: string[]): Promise<TerminalsSnapshot> {
   const rows = await psScan()
 
@@ -145,10 +166,19 @@ async function compute(repoPaths: string[]): Promise<TerminalsSnapshot> {
   const terminalRunning = rows.some((r) => r.args.includes('.app/Contents/MacOS/Terminal'))
   const itermRunning = rows.some((r) => r.args.includes('.app/Contents/MacOS/iTerm2'))
 
+  const fixture = fixtureSurfaces()
   const notRunning: EnumResult = { state: 'not-running', surfaces: [] }
   const [term, iterm, sessions] = await Promise.all([
-    terminalRunning ? enumerate(TERMINAL_ENUM) : Promise.resolve(notRunning),
-    itermRunning ? enumerate(ITERM_ENUM) : Promise.resolve(notRunning),
+    fixture
+      ? Promise.resolve(fixture.term)
+      : terminalRunning
+        ? enumerate(TERMINAL_ENUM)
+        : Promise.resolve(notRunning),
+    fixture
+      ? Promise.resolve(fixture.iterm)
+      : itermRunning
+        ? enumerate(ITERM_ENUM)
+        : Promise.resolve(notRunning),
     getAgentSessions(rows, repoPaths)
   ])
 

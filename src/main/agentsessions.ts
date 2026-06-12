@@ -245,10 +245,15 @@ export async function getAgentSessions(
   repoPaths: string[]
 ): Promise<AgentSessionState[]> {
   const byTty = new Map<string, PsRow>()
-  for (const r of rows) {
-    if (!r.tty || !isClaudeCli(r)) continue
-    const cur = byTty.get(r.tty)
-    if (!cur || r.pid < cur.pid) byTty.set(r.tty, r)
+  // Test/demo harness: a demo profile must not scan the user's real sessions
+  // (their transcripts carry personal titles/prompts) — hook-fed synthetic
+  // sessions are the only source.
+  if (!process.env.ACC_DEMO) {
+    for (const r of rows) {
+      if (!r.tty || !isClaudeCli(r)) continue
+      const cur = byTty.get(r.tty)
+      if (!cur || r.pid < cur.pid) byTty.set(r.tty, r)
+    }
   }
 
   const repoOf = (cwd: string | null): string | null =>
