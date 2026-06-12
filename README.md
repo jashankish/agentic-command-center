@@ -21,10 +21,11 @@ rest keeps working.
 </p>
 
 > **macOS only.** This app targets macOS exclusively. Several core features rely on macOS-specific
-> APIs: the Claude usage token is read from the **macOS Keychain**, calendar events use
-> **AppleScript**, dev-server detection uses **`lsof`**, and editor/Finder/Terminal launching uses
-> **`open -a`**. The prebuilt `.dmg` runs on Apple Silicon (arm64); Intel Mac users can build from
-> source with `npm run dist`. **Linux and Windows are not supported.**
+> APIs: the Claude usage token is read from the **macOS Keychain**, calendar events and the
+> terminals panel (tab listing + click-to-focus) use **AppleScript**, dev-server detection uses
+> **`lsof`**, and editor/Finder/Terminal launching uses **`open -a`**. The prebuilt `.dmg` runs on
+> Apple Silicon (arm64); Intel Mac users can build from source with `npm run dist`. **Linux and
+> Windows are not supported.**
 
 ---
 
@@ -92,7 +93,9 @@ rest keeps working.
 - Running **dev servers** detected and mapped to the owning repo (click the port to open it).
 - **Aggregate health bar** summarizing everything in one line, plus CPU/RAM and next calendar event.
 - **⌘K command palette**, cross-repo **standup digest**, **folder scanning** to bulk-import repos.
-- **Native notifications** on CI failures, new review requests, and high Claude usage.
+- **Native notifications** on CI failures, new review requests, high Claude usage, and Claude
+  sessions blocked on a permission prompt (with a once-per-spell stale nudge) — each class
+  toggleable from the terminals panel.
 - **Settings export/import** to move your setup between machines.
 
 ---
@@ -105,6 +108,7 @@ rest keeps working.
 | **Repo status / commit / push / fetch** | `git` on your `PATH`, plus your usual push auth (HTTPS credential helper or SSH key). |
 | **CI, PRs, issues, inbox, contribution graph** | [`gh`](https://cli.github.com) installed and signed in (`brew install gh && gh auth login`). |
 | **Claude usage bars + cost panel** | [Claude Code](https://claude.com/claude-code) installed and signed in on this machine. |
+| **Terminals panel** | Terminal.app and/or iTerm2 running, plus a one-time macOS **Automation** consent per app. Exact session states are an *optional* one-click hook install from the panel. |
 | **Activity-feed AI summaries** | An Apple Silicon Mac on macOS 26+ with **Apple Intelligence** enabled — *optional*; without it the feed shows raw commit messages. |
 | **Today's calendar event** | macOS Calendar with at least one account (grants an Automation prompt once). |
 | **Building from source** | Node.js ≥ 18 with npm (plus Xcode 26+ or its Command Line Tools to compile the on-device summarizer helper — optional). |
@@ -220,6 +224,8 @@ Other elements on a card:
   - **Sync** — stage all → commit (you'll be prompted for a message) → push the current branch
     (sets upstream with `-u origin <branch>` on first push). Only shown when there's something to do.
   - **Fetch** (⬇) — `git fetch origin` so ahead/behind counts stay accurate.
+  - **Start Claude session** (✳ spark) — a new Terminal window at the repo running `claude`,
+    tracked in the [terminals panel](#terminals-panel) even without the global hooks.
   - **Editor / Terminal / Finder / GitHub** — open the repo in your editor (Cursor, VS Code, Zed, or
     Sublime — whichever is installed), a Terminal, Finder, or its GitHub page.
   - **Expand** (chevron) — reveals the **changed-file list** and **npm script buttons**
@@ -242,8 +248,9 @@ sync. Useful when you want a denser overview.
 ### Command palette (⌘K)
 
 Press **⌘K** (or the 🔍 button) for a fuzzy-searchable list. It includes **every action** — Import,
-Scan folder, Standup, Refresh, toggle view, Export/Import settings — plus a per-repo **Open in
-editor / Reveal in Finder / Open on GitHub** entry, so you can drive the whole app from the keyboard.
+Scan folder, Standup, Refresh, toggle view, Export/Import settings — plus per-repo **Start Claude
+session / Open in editor / Reveal in Finder / Open on GitHub** entries, so you can drive the whole
+app from the keyboard.
 
 <p align="center">
   <img src="docs/screenshot-command-palette.png" alt="Command palette showing searchable list of actions and repos" width="420" />
@@ -415,7 +422,7 @@ token. Here is exactly what is read and how:
 | **Claude cost & sessions & plans** | **Reading local files** in `~/.claude/projects/**/*.jsonl` and `~/.claude/plans/*.md` | None — local files only | **No** |
 | **Activity feed** | `git log` / `git show` per repo via `simple-git`, plus one-line commit **summaries from Apple's on-device foundation model** (bundled `commit-summarizer` helper) | None — on-device model | **No** |
 | **Dev servers** | `lsof` for listening TCP ports, mapped to repos by working directory | None | No |
-| **Terminals panel (tabs & titles)** | AppleScript enumeration of Terminal.app / iTerm2 (only when already running) joined with one `ps` pass + `lsof` working dirs | macOS **Automation** permission, prompted once per app | No |
+| **Terminals panel (tabs & titles)** | AppleScript enumeration of Terminal.app / iTerm2 (only when already running) joined with one `ps` pass, `lsof` working dirs, and `tmux list-panes`/`list-clients` for pane↔client mapping | macOS **Automation** permission, prompted once per app | No |
 | **Claude session states** | Transcript tails in `~/.claude/projects/**` and, with the opt-in hooks, event files Claude Code writes to the app's own data folder | None — local files only | **No** |
 | **Today's calendar** | AppleScript query against Calendar.app | macOS Automation permission (prompted once) | No |
 | **CPU / RAM** | Node's `os` module | None | No |
@@ -464,8 +471,9 @@ limits. You can always force an immediate refresh with the ↻ button.
 
 ## Configuration & persisted state
 
-The only things saved are your **repo list**, your **favorite/group** labels per repo, and your
-**view mode** (compact/dashboard). They live in the OS user-data directory as JSON:
+The things saved are your **repo list**, your **favorite/group** labels per repo, your
+**view mode** (compact/dashboard), and the **terminals-panel preferences** (alert toggles +
+shell-tab visibility). They live in the OS user-data directory as JSON:
 
 ```
 ~/Library/Application Support/agentic-command-center/config.json
@@ -475,7 +483,10 @@ The only things saved are your **repo list**, your **favorite/group** labels per
 - **Export / Import settings** — via the command palette. Exports the repo list, groups, and view
   mode to a `.json` file you choose; import replaces them — handy for moving between machines.
 
-Nothing else is persisted, and nothing secret is ever written.
+Two caches also live beside it: `summary-cache.json` (the activity feed's AI summaries, keyed by
+commit hash so the on-device model is never asked twice) and, with the exact-states hooks
+enabled, the short-lived per-session event files under `agent-events/` (deleted when sessions
+end, never exported). Nothing secret is ever written.
 
 ---
 
@@ -522,8 +533,10 @@ type-checked end to end.
 | `listDevServers` / `getScripts` / `runScript` | `lsof` mapping / package.json scripts / run (`devservers.ts`, `actions.ts`) |
 | `getStandup` | cross-repo commit digest (`standup.ts`) |
 | `getCommitFeed` / `toggleFeed` | activity-feed commits + on-device AI summaries / show-hide the docked feed window (`commitfeed.ts`, `applesummarizer.ts`, `index.ts`) |
-| `getTerminals` / `focusTerminal` / `toggleTerminals` | terminal enumeration + session states / tty-matched focus / show-hide the docked panel (`terminals.ts`, `agentsessions.ts`, `index.ts`) |
-| `getHooksStatus` / `installHooks` / `uninstallHooks` | the opt-in exact-states hooks (`hooks-setup.ts`) |
+| `getTerminals` / `focusTerminal` / `toggleTerminals` | terminal enumeration + session states / tty-matched (and tmux-pane-aware) focus / show-hide the docked panel (`terminals.ts`, `agentsessions.ts`, `tmux.ts`, `index.ts`) |
+| `getAgentTimeline` / `onSessionsUpdate` | recent agent lifecycle events / instant push when hook events land (`agentevents.ts`) |
+| `getHooksStatus` / `installHooks` / `uninstallHooks` | the opt-in exact-states hooks, incl. the per-tool-detail variant (`hooks-setup.ts`) |
+| `launchAgent` / `getPanelPrefs` / `setPanelPrefs` / `setBadge` | tracked Claude launch / panel preferences / dock badge (`actions.ts`, `store.ts`, `ipc.ts`) |
 | `getCalendar` / `getSystemStats` | Calendar via AppleScript / CPU+RAM (`calendar.ts`, `system.ts`) |
 | `scanForRepos` | scan a folder for `.git` repos (`discover.ts`) |
 | `getRepoMeta` / `setRepoMeta` / `exportSettings` / `importSettings` | persistence (`store.ts`) |
@@ -546,7 +559,14 @@ enumeration binds ttys to tabs; one `ps` pass identifies each tty's foreground p
 Claude CLIs); and per-session state is either folded from hook-event files (`agentevents.ts`,
 exact, push-driven) or inferred from the transcript tail (`agentsessions.ts`, heuristic). A
 transcript write newer than a waiting event clears it back to *working* — so an answered permission
-prompt un-flashes immediately even though no hook fires for the answer itself.
+prompt un-flashes immediately even though no hook fires for the answer itself. Sessions inside
+tmux get a fourth join (`tmux.ts`): pane tty → tmux session → attached client → the client's tab,
+with focus routed through `switch-client`/`select-window`/`select-pane` first. The same event
+stream feeds the panel's **Events** tab through a capped, duplicate-free timeline.
+
+The full design — signal layers, state machine, security guarantees, failure modes, and the
+delivery record — lives in
+[`docs/terminal-awareness-plan.md`](docs/terminal-awareness-plan.md).
 
 ---
 
@@ -600,8 +620,9 @@ agentic-command-center/
 │   │   ├── procs.ts            # process table: foreground-per-tty, claude detection, lsof cwd
 │   │   ├── terminals.ts        # Terminal.app/iTerm2 enumeration + click-to-focus (AppleScript)
 │   │   ├── agentsessions.ts    # Claude session states: heuristic classifier + event merge
-│   │   ├── agentevents.ts      # hook-event watcher: exact states, instant push, cleanup
+│   │   ├── agentevents.ts      # hook-event watcher: exact states, timeline, instant push, cleanup
 │   │   ├── hooks-setup.ts      # opt-in installer for the exact-states Claude Code hooks
+│   │   ├── tmux.ts             # tmux pane↔client mapping + pane reveal on focus
 │   │   ├── actions.ts          # open in editor/terminal/Finder/GitHub, run scripts
 │   │   ├── standup.ts          # cross-repo commit digest
 │   │   ├── commitfeed.ts       # activity feed: recent commits + on-device AI summaries
