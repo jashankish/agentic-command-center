@@ -6,7 +6,14 @@ import { getClaudeUsage } from './usage'
 import { getInsights } from './insights'
 import { getClaudeActivity } from './claude'
 import { listDevServers, getScripts } from './devservers'
-import { openInEditor, openInTerminal, revealInFinder, openRemote, runScript } from './actions'
+import {
+  openInEditor,
+  openInTerminal,
+  revealInFinder,
+  openRemote,
+  runScript,
+  launchAgent
+} from './actions'
 import { getInbox } from './inbox'
 import { discoverRepos } from './discover'
 import { getStandup } from './standup'
@@ -45,6 +52,7 @@ export function registerIpc(): void {
   ipcMain.handle('actions:reveal', (_e, p: string) => revealInFinder(p))
   ipcMain.handle('actions:openRemote', (_e, p: string) => openRemote(p))
   ipcMain.handle('actions:runScript', (_e, p: string, name: string) => runScript(p, name))
+  ipcMain.handle('actions:launchAgent', (_e, p: string) => launchAgent(p))
 
   ipcMain.handle('contrib:get', () => getContributions())
   ipcMain.handle('usage:get', () => getClaudeUsage())

@@ -403,6 +403,15 @@ export default function App(): JSX.Element {
     const perRepo: Command[] = sorted.flatMap((s) => {
       const cmds: Command[] = [
         {
+          id: `agent:${s.path}`,
+          label: `Start Claude session in ${s.name}`,
+          hint: s.path,
+          run: async () => {
+            const r = await window.api.launchAgent(s.path)
+            if (!r.success) flash(r.error ?? 'Could not start Claude.')
+          }
+        },
+        {
           id: `editor:${s.path}`,
           label: `Open ${s.name} in editor`,
           hint: s.path,

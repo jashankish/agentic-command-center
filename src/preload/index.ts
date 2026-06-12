@@ -41,6 +41,9 @@ const api = {
   openRemote: (p: string): Promise<CommitPushResult> => ipcRenderer.invoke('actions:openRemote', p),
   runScript: (p: string, name: string): Promise<CommitPushResult> =>
     ipcRenderer.invoke('actions:runScript', p, name),
+  // New Terminal window at the repo running claude (with session tracking).
+  launchAgent: (p: string): Promise<CommitPushResult> =>
+    ipcRenderer.invoke('actions:launchAgent', p),
 
   pickDirectory: (): Promise<string[]> => ipcRenderer.invoke('dialog:pickDirectory'),
   scanForRepos: (): Promise<string[]> => ipcRenderer.invoke('discover:scan'),

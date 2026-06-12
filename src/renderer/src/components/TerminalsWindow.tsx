@@ -63,6 +63,32 @@ function SessionMeta({ agent }: { agent: AgentSessionState }): JSX.Element | nul
   )
 }
 
+const modelShort = (m?: string): string | null => {
+  if (!m) return null
+  return (
+    ['fable', 'opus', 'sonnet', 'haiku'].find((k) => m.includes(k)) ??
+    m.replace(/^claude-/, '').slice(0, 12)
+  )
+}
+
+/** Compact telemetry chips: the session's model and (non-default) permission mode. */
+function AgentChips({ agent }: { agent: AgentSessionState }): JSX.Element | null {
+  const model = modelShort(agent.model)
+  const mode =
+    agent.permissionMode && agent.permissionMode !== 'default' ? agent.permissionMode : null
+  if (!model && !mode) return null
+  return (
+    <>
+      {model && <span className="term-chip">{model}</span>}
+      {mode && (
+        <span className="term-chip term-chip-mode" title="Claude Code permission mode">
+          {mode}
+        </span>
+      )}
+    </>
+  )
+}
+
 function EntryRow({
   entry,
   onFocus
@@ -95,6 +121,7 @@ function EntryRow({
       {entry.agent && <SessionMeta agent={entry.agent} />}
       <div className="term-entry-meta">
         {place && place !== title && <span className="term-chip">{place}</span>}
+        {entry.agent && <AgentChips agent={entry.agent} />}
         {entry.command && <span className="term-cmd">{entry.command}</span>}
         {!entry.agent && entry.busy && <span className="term-chip term-chip-busy">busy</span>}
       </div>
@@ -112,6 +139,9 @@ function UnboundRow({ session }: { session: UnboundSession }): JSX.Element {
         <AgentBadge agent={session} />
       </div>
       <SessionMeta agent={session} />
+      <div className="term-entry-meta">
+        <AgentChips agent={session} />
+      </div>
     </div>
   )
 }

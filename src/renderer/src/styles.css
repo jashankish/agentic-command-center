@@ -2208,6 +2208,10 @@ a.feed-hash:hover {
   color: var(--accent);
 }
 
+.term-chip-mode {
+  color: var(--amber);
+}
+
 .term-cmd {
   font-size: 10px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
