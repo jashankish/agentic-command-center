@@ -1,4 +1,4 @@
-import { ipcMain, dialog, BrowserWindow } from 'electron'
+import { ipcMain, dialog, BrowserWindow, app } from 'electron'
 import { readFile, writeFile } from 'fs/promises'
 import { getStatus, commitAndPush, fetchRepo } from './git'
 import { getContributions } from './contributions'
@@ -14,6 +14,7 @@ import { getSystemStats } from './system'
 import { getCalendar } from './calendar'
 import { getCommitFeed } from './commitfeed'
 import { getTerminals, focusTerminal } from './terminals'
+import { getHooksStatus, installHooks, uninstallHooks } from './hooks-setup'
 import {
   listRepos,
   addRepo,
@@ -58,6 +59,16 @@ export function registerIpc(): void {
   ipcMain.handle('feed:get', (_e, paths: string[]) => getCommitFeed(paths))
   ipcMain.handle('terminals:list', (_e, paths: string[]) => getTerminals(paths))
   ipcMain.handle('terminals:focus', (_e, target: FocusTarget) => focusTerminal(target))
+
+  ipcMain.handle('hooks:status', () => getHooksStatus())
+  ipcMain.handle('hooks:install', () => installHooks())
+  ipcMain.handle('hooks:uninstall', () => uninstallHooks())
+
+  // Dock badge: count of sessions blocked on the user (renderer computes it
+  // alongside the health-bar chip; clearing means passing 0).
+  ipcMain.handle('badge:set', (_e, n: number) => {
+    app.setBadgeCount(Number.isFinite(n) && n > 0 ? Math.floor(n) : 0)
+  })
 
   ipcMain.handle('view:get', () => getViewMode())
   ipcMain.handle('view:set', (_e, mode: ViewMode) => setViewMode(mode))

@@ -204,6 +204,11 @@ async function compute(repoPaths: string[]): Promise<TerminalsSnapshot> {
   }
 }
 
+/** Drop the snapshot cache so push-driven refreshes see new state at once. */
+export function invalidateTerminalsCache(): void {
+  cache = null
+}
+
 export async function getTerminals(repoPaths: string[]): Promise<TerminalsSnapshot> {
   const key = [...repoPaths].sort().join('\n')
   const now = Date.now()

@@ -16,7 +16,8 @@ import type {
   CalendarData,
   CommitFeed,
   TerminalsSnapshot,
-  FocusTarget
+  FocusTarget,
+  HooksStatus
 } from '../shared/types'
 
 const api = {
@@ -70,6 +71,19 @@ const api = {
   // Bring the terminal tab owning a tty to the front.
   focusTerminal: (target: FocusTarget): Promise<CommitPushResult> =>
     ipcRenderer.invoke('terminals:focus', target),
+
+  // Opt-in Claude Code hooks for exact session states.
+  getHooksStatus: (): Promise<HooksStatus> => ipcRenderer.invoke('hooks:status'),
+  installHooks: (): Promise<HooksStatus> => ipcRenderer.invoke('hooks:install'),
+  uninstallHooks: (): Promise<HooksStatus> => ipcRenderer.invoke('hooks:uninstall'),
+  // Hook events landed — refetch session state now instead of waiting a poll.
+  onSessionsUpdate: (cb: () => void): (() => void) => {
+    const handler = (): void => cb()
+    ipcRenderer.on('sessions:update', handler)
+    return () => ipcRenderer.removeListener('sessions:update', handler)
+  },
+  // Dock badge count of sessions waiting on the user (0 clears it).
+  setBadge: (n: number): Promise<void> => ipcRenderer.invoke('badge:set', n),
 
   // Show / hide the docked activity-feed window; resolves to the new open state.
   toggleFeed: (): Promise<boolean> => ipcRenderer.invoke('feed:toggle'),

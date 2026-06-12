@@ -1,6 +1,8 @@
 import { app, BrowserWindow, shell, screen, ipcMain } from 'electron'
 import { join } from 'path'
+import { initAgentEvents } from './agentevents'
 import { registerIpc } from './ipc'
+import { invalidateTerminalsCache } from './terminals'
 
 // Name the app explicitly so the macOS menu bar (and dock / About panel / the
 // userData directory) read "Agentic Command Center" rather than "Electron".
@@ -233,6 +235,17 @@ app.whenReady().then(() => {
 
   ipcMain.handle('feed:toggle', () => toggleDock('feed'))
   ipcMain.handle('terminals:toggle', () => toggleDock('terminals'))
+
+  // Hook-event watcher: pushes session-state changes to every window the
+  // moment the recorder script appends a line (quiet until hooks are enabled).
+  initAgentEvents(join(app.getPath('userData'), 'agent-events'), () => {
+    invalidateTerminalsCache()
+    for (const w of BrowserWindow.getAllWindows()) {
+      if (!w.isDestroyed()) w.webContents.send('sessions:update')
+    }
+  }).catch(() => {
+    // Event layer is optional — heuristics keep working without it.
+  })
 
   createWindow()
 

@@ -251,8 +251,9 @@ export interface AgentSessionState {
   confidence: 'event' | 'heuristic'
   /** ISO timestamp the current state began (best-effort), or null. */
   since: string | null
-  /** What the session is waiting on, when known. */
-  detail?: { tool?: string }
+  /** What the session is waiting on, when known: the pending tool, and a
+   *  short redacted summary of what it wants to do (hook-fed states only). */
+  detail?: { tool?: string; summary?: string }
   /** Model id seen most recently in the transcript. */
   model?: string
   /** Claude Code permission mode (default / acceptEdits / plan / …). */
@@ -312,4 +313,17 @@ export interface FocusTarget {
   app: 'Terminal' | 'iTerm2'
   /** Normalized tty name, e.g. "ttys004". */
   tty: string
+}
+
+/** State of the opt-in Claude Code hook integration for exact session states. */
+export interface HooksStatus {
+  /** True when every event hook points at this app's recorder script. */
+  installed: boolean
+  /** True when only some hooks are present (e.g. a partial manual edit). */
+  partial: boolean
+  scriptPath: string
+  settingsPath: string
+  /** Pretty-printed JSON of exactly what install merges into settings.json. */
+  preview: string
+  error?: string
 }

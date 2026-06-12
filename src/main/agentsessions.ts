@@ -2,6 +2,7 @@ import { open, readdir, stat } from 'fs/promises'
 import { homedir } from 'os'
 import { join } from 'path'
 import type { AgentSessionState, AgentState } from '../shared/types'
+import { getEventSessions } from './agentevents'
 import { encodedNames } from './claude'
 import { cwdOfPid, hasActiveDescendant, isClaudeCli, type PsRow } from './procs'
 
@@ -234,6 +235,10 @@ async function sessionOf(
 /**
  * One session per controlling terminal: forks and helpers share the CLI's tty,
  * so the eldest claude pid per tty is the session process.
+ *
+ * Hook-fed sessions (agentevents.ts) take precedence wherever they cover a
+ * terminal — they're exact. The heuristic layer fills everything they don't:
+ * hooks not installed, or sessions started before the install.
  */
 export async function getAgentSessions(
   rows: PsRow[],
@@ -245,5 +250,27 @@ export async function getAgentSessions(
     const cur = byTty.get(r.tty)
     if (!cur || r.pid < cur.pid) byTty.set(r.tty, r)
   }
-  return Promise.all([...byTty.values()].map((proc) => sessionOf(proc, rows, repoPaths)))
+
+  const repoOf = (cwd: string | null): string | null =>
+    cwd === null ? null : (repoPaths.find((r) => cwd === r || cwd.startsWith(r + '/')) ?? null)
+
+  const out: AgentSessionState[] = []
+  const coveredTtys = new Set<string>()
+  const coveredIds = new Set<string>()
+  const livePids = new Set(rows.map((r) => r.pid))
+  for (const ev of getEventSessions()) {
+    // Trust ps for liveness — a registry entry whose pid vanished is a corpse
+    // the event GC just hasn't swept yet.
+    if (ev.pid > 0 && !livePids.has(ev.pid)) continue
+    out.push({ ...ev, repoPath: repoOf(ev.cwd) })
+    if (ev.tty) coveredTtys.add(ev.tty)
+    if (ev.sessionId) coveredIds.add(ev.sessionId)
+  }
+
+  const uncovered = [...byTty.values()].filter((p) => !p.tty || !coveredTtys.has(p.tty))
+  const heuristic = await Promise.all(uncovered.map((proc) => sessionOf(proc, rows, repoPaths)))
+  // A hook-fed session whose tty binding failed can still duplicate a
+  // heuristic one through the shared transcript — the session id catches that.
+  out.push(...heuristic.filter((h) => !h.sessionId || !coveredIds.has(h.sessionId)))
+  return out
 }
