@@ -1,4 +1,9 @@
-import type { RepoInsights, ClaudeUsage } from '../../../shared/types'
+import type {
+  AgentSessionState,
+  ClaudeUsage,
+  RepoInsights,
+  TerminalsSnapshot
+} from '../../../shared/types'
 
 // Track previous state so we only notify on *transitions*, not every poll. The
 // first run primes the baseline without firing (avoids a burst on launch).
@@ -62,4 +67,63 @@ export function checkNotifications({ insights, nameOf, usage }: Snapshot): void 
   lastUsageHigh = high
 
   primed = true
+}
+
+// ── Agent session notifications (terminals panel) ──────────────────────────
+// Same transition discipline as above: prime on the first snapshot, notify on
+// permission-prompt *transitions*, and nudge once per waiting spell when a
+// session has sat blocked for a while.
+
+let agentsPrimed = false
+const lastAgentState = new Map<string, string>()
+const escalatedSpells = new Set<string>()
+
+const ESCALATE_AFTER_MS = 5 * 60_000
+// Sessions idle longer than this predate the user's attention span on
+// purpose (e.g. left open overnight) — nagging about them helps no one.
+const ESCALATE_CUTOFF_MS = 60 * 60_000
+
+const sessionKey = (s: AgentSessionState): string => s.sessionId ?? `pid-${s.pid}`
+
+const repoLabel = (s: AgentSessionState): string => {
+  const p = s.repoPath ?? s.cwd
+  return p ? p.split('/').pop() || p : 'a session'
+}
+
+export function checkAgentNotifications(snap: TerminalsSnapshot): void {
+  const sessions: AgentSessionState[] = [
+    ...snap.entries.flatMap((e) => (e.agent ? [e.agent] : [])),
+    ...snap.unbound
+  ]
+  const seen = new Set<string>()
+  for (const s of sessions) {
+    const key = sessionKey(s)
+    seen.add(key)
+
+    const prev = lastAgentState.get(key)
+    if (agentsPrimed && s.state === 'permission' && prev !== 'permission') {
+      const what = s.detail?.summary
+        ? `${s.detail.tool ?? 'a tool'} — ${s.detail.summary}`
+        : (s.detail?.tool ?? 'a tool')
+      fire('Claude needs permission', `${repoLabel(s)}: wants to use ${what}`)
+    }
+    lastAgentState.set(key, s.state)
+
+    if (agentsPrimed && (s.state === 'permission' || s.state === 'input') && s.since) {
+      const waited = Date.now() - new Date(s.since).getTime()
+      const spell = `${key}:${s.state}:${s.since}`
+      if (waited > ESCALATE_AFTER_MS && waited < ESCALATE_CUTOFF_MS && !escalatedSpells.has(spell)) {
+        escalatedSpells.add(spell)
+        fire(
+          s.state === 'permission'
+            ? 'Claude is still waiting for permission'
+            : 'Claude finished and is waiting',
+          `${repoLabel(s)} has been waiting ${Math.round(waited / 60_000)}m`
+        )
+      }
+    }
+  }
+  for (const k of [...lastAgentState.keys()]) if (!seen.has(k)) lastAgentState.delete(k)
+  if (escalatedSpells.size > 300) escalatedSpells.clear()
+  agentsPrimed = true
 }

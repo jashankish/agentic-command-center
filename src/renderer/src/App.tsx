@@ -36,7 +36,7 @@ import {
   IconTerminal
 } from './components/icons'
 import { deriveState } from './lib/status'
-import { checkNotifications, requestNotifyPermission } from './lib/notify'
+import { checkAgentNotifications, checkNotifications, requestNotifyPermission } from './lib/notify'
 
 const nameOf = (p: string): string => p.split('/').pop() || p
 
@@ -136,10 +136,12 @@ export default function App(): JSX.Element {
       if (s.state !== 'input') return false
       return !!s.since && Date.now() - new Date(s.since).getTime() < RECENT_MS
     }
-    setAgentsWaiting(
+    const n =
       snap.entries.filter((e) => waiting(e.agent)).length +
-        snap.unbound.filter((s) => waiting(s)).length
-    )
+      snap.unbound.filter((s) => waiting(s)).length
+    setAgentsWaiting(n)
+    void window.api.setBadge(n)
+    checkAgentNotifications(snap)
   }, [])
 
   // Open/close the docked feed window in the main process; it returns the
@@ -166,6 +168,10 @@ export default function App(): JSX.Element {
   // highlight when the main process reports one gone.
   useEffect(() => window.api.onFeedClosed(() => setFeedOpen(false)), [])
   useEffect(() => window.api.onTerminalsClosed(() => setTerminalsOpen(false)), [])
+
+  // Hook events push the moment a session changes state — refresh the chip,
+  // badge, and notifications immediately rather than on the next 15s tick.
+  useEffect(() => window.api.onSessionsUpdate(() => void loadTerminals()), [loadTerminals])
 
   useEffect(() => {
     reloadAll()

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type {
   AgentSessionState,
+  HooksStatus,
   TerminalEntry,
   TerminalsSnapshot,
   UnboundSession
@@ -115,12 +116,82 @@ function UnboundRow({ session }: { session: UnboundSession }): JSX.Element {
   )
 }
 
+const homeShort = (p: string): string => p.replace(/^\/Users\/[^/]+/, '~')
+
+/** Footer card driving the opt-in Claude Code hooks (exact session states).
+ *  Consent-first: install only happens after the exact JSON is shown. */
+function HooksCard({
+  hooks,
+  busy,
+  onInstall,
+  onUninstall
+}: {
+  hooks: HooksStatus
+  busy: boolean
+  onInstall: () => void
+  onUninstall: () => void
+}): JSX.Element {
+  const [confirming, setConfirming] = useState(false)
+
+  if (hooks.installed) {
+    return (
+      <div className="term-footer">
+        <div className="term-hooks-row">
+          <span className="term-hooks-status on">exact states on</span>
+          <span className="term-hooks-note">Claude Code reports session events directly</span>
+          <button className="term-btn" disabled={busy} onClick={onUninstall}>
+            Disable
+          </button>
+        </div>
+        {hooks.error && <div className="term-hooks-error">{hooks.error}</div>}
+      </div>
+    )
+  }
+
+  return (
+    <div className="term-footer">
+      {confirming ? (
+        <div className="term-hooks-confirm">
+          <p>
+            This adds six lifecycle hooks to <code>{homeShort(hooks.settingsPath)}</code> so
+            sessions report exact states (which tool wants permission, when a turn finishes).
+            Nothing runs on tool calls, so Claude is not slowed down. Events are stored privately
+            in this app&apos;s data folder and deleted when sessions end. A timestamped backup of
+            your settings file is kept, and Disable removes exactly these entries.
+          </p>
+          <pre className="term-hooks-preview">{hooks.preview}</pre>
+          <div className="term-hooks-actions">
+            <button className="term-btn primary" disabled={busy} onClick={onInstall}>
+              Add hooks
+            </button>
+            <button className="term-btn" disabled={busy} onClick={() => setConfirming(false)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="term-hooks-row">
+          <span className="term-hooks-status off">
+            {hooks.partial ? 'exact states partial' : 'states are inferred'}
+          </span>
+          <button className="term-btn primary" disabled={busy} onClick={() => setConfirming(true)}>
+            Enable exact states…
+          </button>
+        </div>
+      )}
+      {hooks.error && <div className="term-hooks-error">{hooks.error}</div>}
+    </div>
+  )
+}
+
 /** Standalone terminals panel rendered inside its own docked window. Fetches
  *  and polls independently of the main command-center window. */
 export default function TerminalsWindow(): JSX.Element {
   const [snap, setSnap] = useState<TerminalsSnapshot | null>(null)
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState<string | null>(null)
+  const [hooks, setHooks] = useState<HooksStatus | null>(null)
+  const [hooksBusy, setHooksBusy] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -130,6 +201,31 @@ export default function TerminalsWindow(): JSX.Element {
       setLoading(false)
     }
   }, [])
+
+  const handleInstallHooks = useCallback(async () => {
+    setHooksBusy(true)
+    try {
+      setHooks(await window.api.installHooks())
+    } finally {
+      setHooksBusy(false)
+    }
+  }, [])
+
+  const handleUninstallHooks = useCallback(async () => {
+    setHooksBusy(true)
+    try {
+      setHooks(await window.api.uninstallHooks())
+    } finally {
+      setHooksBusy(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    window.api.getHooksStatus().then(setHooks)
+  }, [])
+
+  // Hook events push state changes instantly — refresh without waiting a poll.
+  useEffect(() => window.api.onSessionsUpdate(() => void load()), [load])
 
   useEffect(() => {
     load()
@@ -221,6 +317,15 @@ export default function TerminalsWindow(): JSX.Element {
           </>
         )}
       </div>
+
+      {hooks && (
+        <HooksCard
+          hooks={hooks}
+          busy={hooksBusy}
+          onInstall={handleInstallHooks}
+          onUninstall={handleUninstallHooks}
+        />
+      )}
 
       {toast && <div className="toast term-toast">{toast}</div>}
     </div>

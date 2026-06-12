@@ -2243,3 +2243,126 @@ a.feed-hash:hover {
     opacity: 0.4;
   }
 }
+
+/* Hooks (exact session states) footer card */
+.term-footer {
+  flex-shrink: 0;
+  border-top: 1px solid var(--hairline-soft);
+  padding: 8px 12px;
+  font-size: 10px;
+}
+
+.term-hooks-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.term-hooks-status {
+  flex-shrink: 0;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+
+.term-hooks-status.on {
+  color: var(--green);
+  background: rgba(54, 211, 153, 0.1);
+  border: 1px solid rgba(54, 211, 153, 0.3);
+}
+
+.term-hooks-status.off {
+  color: var(--muted);
+  background: var(--glass);
+  border: 1px dashed var(--hairline);
+}
+
+.term-hooks-note {
+  flex: 1;
+  min-width: 0;
+  color: var(--faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.term-hooks-row .term-btn:last-child {
+  margin-left: auto;
+}
+
+.term-btn {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--glass);
+  border: 1px solid var(--hairline);
+  border-radius: 5px;
+  padding: 3px 9px;
+  cursor: pointer;
+  transition:
+    background 0.12s,
+    color 0.12s;
+}
+
+.term-btn:hover:not(:disabled) {
+  background: var(--glass-strong);
+  color: var(--text);
+}
+
+.term-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.term-btn.primary {
+  color: var(--accent);
+  border-color: rgba(106, 168, 255, 0.4);
+  background: rgba(106, 168, 255, 0.1);
+}
+
+.term-btn.primary:hover:not(:disabled) {
+  background: rgba(106, 168, 255, 0.2);
+  color: var(--text);
+}
+
+.term-hooks-confirm p {
+  margin: 0 0 6px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.term-hooks-confirm code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--text);
+  font-size: 9.5px;
+}
+
+.term-hooks-preview {
+  margin: 0 0 8px;
+  max-height: 130px;
+  overflow: auto;
+  font-size: 9px;
+  line-height: 1.45;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--faint);
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--hairline-soft);
+  border-radius: 6px;
+  padding: 7px 9px;
+}
+
+.term-hooks-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.term-hooks-error {
+  margin-top: 6px;
+  color: var(--red);
+  font-size: 9.5px;
+}
