@@ -253,6 +253,17 @@ export function IconClipboard({ size = 16 }: IconProps): JSX.Element {
   )
 }
 
+export function IconSpark({ size = 14 }: IconProps): JSX.Element {
+  return svg(
+    size,
+    <>
+      <path d="M12 4v16" />
+      <path d="M5.07 8l13.86 8" />
+      <path d="M18.93 8L5.07 16" />
+    </>
+  )
+}
+
 export function IconActivity({ size = 16 }: IconProps): JSX.Element {
   return svg(size, <path d="M22 12h-4l-3 9L9 3l-3 9H2" />)
 }

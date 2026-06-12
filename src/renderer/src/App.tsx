@@ -141,7 +141,7 @@ export default function App(): JSX.Element {
       snap.unbound.filter((s) => waiting(s)).length
     setAgentsWaiting(n)
     void window.api.setBadge(n)
-    checkAgentNotifications(snap)
+    checkAgentNotifications(snap, await window.api.getPanelPrefs())
   }, [])
 
   // Open/close the docked feed window in the main process; it returns the
@@ -282,7 +282,8 @@ export default function App(): JSX.Element {
       editor: window.api.openEditor,
       terminal: window.api.openTerminal,
       reveal: window.api.reveal,
-      remote: window.api.openRemote
+      remote: window.api.openRemote,
+      agent: window.api.launchAgent
     }[kind]
     const r = await fn(p)
     if (!r.success) flash(r.error ?? 'Action failed.')

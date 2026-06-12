@@ -16,10 +16,11 @@ import {
   IconChevron,
   IconBranch,
   IconPlay,
-  IconStar
+  IconStar,
+  IconSpark
 } from './icons'
 
-export type ActionKind = 'editor' | 'terminal' | 'reveal' | 'remote'
+export type ActionKind = 'editor' | 'terminal' | 'reveal' | 'remote' | 'agent'
 
 interface Props {
   status: RepoStatus
@@ -166,6 +167,13 @@ export default function RepoCard({
             <IconDownload />
           </button>
         )}
+        <button
+          className="act"
+          onClick={() => onAction('agent')}
+          title="Start a Claude session here (new Terminal window, tracked in the terminals panel)"
+        >
+          <IconSpark />
+        </button>
         <button className="act" onClick={() => onAction('editor')} title="Open in editor">
           <IconEditor />
         </button>
