@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import type {
   AgentSessionState,
+  AgentTimelineEvent,
   HooksStatus,
+  PanelPrefs,
   TerminalEntry,
   TerminalsSnapshot,
   UnboundSession
@@ -44,10 +46,12 @@ function AgentBadge({ agent }: { agent: AgentSessionState }): JSX.Element {
     agent.confidence === 'heuristic'
       ? 'Inferred from the session transcript — enable phase-2 hooks for exact states'
       : 'Reported by Claude Code'
+  const showTool =
+    (agent.state === 'permission' || agent.state === 'working') && agent.detail?.tool
   return (
     <span className={`term-state term-state-${agent.state} conf-${agent.confidence}`} title={hint}>
       {STATE_LABEL[agent.state]}
-      {agent.state === 'permission' && agent.detail?.tool ? ` · ${agent.detail.tool}` : ''}
+      {showTool ? ` · ${agent.detail!.tool}` : ''}
       {wait ? ` · ${wait}` : ''}
     </span>
   )
@@ -99,11 +103,16 @@ function EntryRow({
   const repoName = lastSegment(entry.repoPath)
   const place = repoName ?? lastSegment(entry.agent?.cwd ?? entry.cwd)
   const title = entry.title || place || entry.command || entry.app
+  // Waiting > 5 minutes escalates the flash (faster, brighter).
+  const stale =
+    isWaiting(entry.agent) &&
+    entry.agent!.since !== null &&
+    Date.now() - new Date(entry.agent!.since).getTime() > 5 * 60_000
   const attn =
     entry.agent?.state === 'permission'
-      ? 'term-attn term-attn-permission'
+      ? `term-attn term-attn-permission${stale ? ' term-stale' : ''}`
       : entry.agent?.state === 'input'
-        ? 'term-attn term-attn-input'
+        ? `term-attn term-attn-input${stale ? ' term-stale' : ''}`
         : ''
   const clickable = entry.tty !== null
 
@@ -129,10 +138,22 @@ function EntryRow({
   )
 }
 
-function UnboundRow({ session }: { session: UnboundSession }): JSX.Element {
+function UnboundRow({
+  session,
+  onActivate
+}: {
+  session: UnboundSession
+  onActivate: (host: string) => void
+}): JSX.Element {
   const place = lastSegment(session.repoPath ?? session.cwd)
+  // tmux's host is whichever terminal the client is attached to — not focusable.
+  const clickable = !!session.host && session.host !== 'tmux'
   return (
-    <div className="term-entry term-unbound">
+    <div
+      className={`term-entry term-unbound ${clickable ? 'term-clickable' : ''}`}
+      onClick={clickable ? () => onActivate(session.host!) : undefined}
+      title={clickable ? `Bring ${session.host} to the front` : undefined}
+    >
       <div className="term-entry-top">
         <span className="term-app-badge">{session.host ?? 'elsewhere'}</span>
         <span className="term-title">{place ?? 'claude'}</span>
@@ -141,6 +162,38 @@ function UnboundRow({ session }: { session: UnboundSession }): JSX.Element {
       <SessionMeta agent={session} />
       <div className="term-entry-meta">
         <AgentChips agent={session} />
+      </div>
+    </div>
+  )
+}
+
+function describeEvent(ev: AgentTimelineEvent): string {
+  switch (ev.kind) {
+    case 'start':
+      return 'session started'
+    case 'prompt':
+      return ev.prompt ? `prompt: ${ev.prompt}` : 'prompt submitted'
+    case 'permission':
+      return `asked to use ${ev.detail?.tool ?? 'a tool'}${
+        ev.detail?.summary ? ` — ${ev.detail.summary}` : ''
+      }`
+    case 'idle':
+      return 'waiting for input'
+    case 'stop':
+      return 'turn finished'
+    case 'end':
+      return 'session ended'
+  }
+}
+
+function TimelineRow({ ev }: { ev: AgentTimelineEvent }): JSX.Element {
+  const place = lastSegment(ev.repoPath ?? ev.cwd) ?? ev.sessionId.slice(0, 8)
+  return (
+    <div className={`tl-entry tl-${ev.kind}`}>
+      <div className="term-entry-top">
+        <span className="term-chip">{place}</span>
+        <span className="tl-text">{describeEvent(ev)}</span>
+        <span className="tl-time">{relFromIso(ev.ts) ?? ''}</span>
       </div>
     </div>
   )
@@ -158,17 +211,32 @@ function HooksCard({
 }: {
   hooks: HooksStatus
   busy: boolean
-  onInstall: () => void
+  onInstall: (detailed: boolean) => void
   onUninstall: () => void
 }): JSX.Element {
   const [confirming, setConfirming] = useState(false)
+  const [wantDetailed, setWantDetailed] = useState(false)
 
   if (hooks.installed) {
     return (
-      <div className="term-footer">
+      <div className="term-hooks">
         <div className="term-hooks-row">
-          <span className="term-hooks-status on">exact states on</span>
+          <span className="term-hooks-status on">
+            exact states on{hooks.detailed ? ' · detailed' : ''}
+          </span>
           <span className="term-hooks-note">Claude Code reports session events directly</span>
+          <button
+            className="term-btn"
+            disabled={busy}
+            onClick={() => onInstall(!hooks.detailed)}
+            title={
+              hooks.detailed
+                ? 'Drop the per-tool hooks (PreToolUse/PostToolUse)'
+                : 'Also show which tool is running, via PreToolUse/PostToolUse (one recorder spawn around every tool call)'
+            }
+          >
+            {hooks.detailed ? 'Less detail' : 'Per-tool detail'}
+          </button>
           <button className="term-btn" disabled={busy} onClick={onUninstall}>
             Disable
           </button>
@@ -179,19 +247,37 @@ function HooksCard({
   }
 
   return (
-    <div className="term-footer">
+    <div className="term-hooks">
       {confirming ? (
         <div className="term-hooks-confirm">
           <p>
-            This adds six lifecycle hooks to <code>{homeShort(hooks.settingsPath)}</code> so
-            sessions report exact states (which tool wants permission, when a turn finishes).
-            Nothing runs on tool calls, so Claude is not slowed down. Events are stored privately
-            in this app&apos;s data folder and deleted when sessions end. A timestamped backup of
-            your settings file is kept, and Disable removes exactly these entries.
+            This adds {wantDetailed ? 'eight' : 'six'} lifecycle hooks to{' '}
+            <code>{homeShort(hooks.settingsPath)}</code> so sessions report exact states (which
+            tool wants permission, when a turn finishes).{' '}
+            {wantDetailed
+              ? 'The per-tool hooks add one recorder spawn around every tool call.'
+              : 'Nothing runs on tool calls, so Claude is not slowed down.'}{' '}
+            Events are stored privately in this app&apos;s data folder and deleted when sessions
+            end. A timestamped backup of your settings file is kept, and Disable removes exactly
+            these entries.
           </p>
-          <pre className="term-hooks-preview">{hooks.preview}</pre>
+          <label className="term-hooks-option">
+            <input
+              type="checkbox"
+              checked={wantDetailed}
+              onChange={(e) => setWantDetailed(e.target.checked)}
+            />
+            Per-tool detail (&quot;working · Bash&quot;) via PreToolUse/PostToolUse
+          </label>
+          <pre className="term-hooks-preview">
+            {wantDetailed ? hooks.previewDetailed : hooks.preview}
+          </pre>
           <div className="term-hooks-actions">
-            <button className="term-btn primary" disabled={busy} onClick={onInstall}>
+            <button
+              className="term-btn primary"
+              disabled={busy}
+              onClick={() => onInstall(wantDetailed)}
+            >
               Add hooks
             </button>
             <button className="term-btn" disabled={busy} onClick={() => setConfirming(false)}>
@@ -214,28 +300,67 @@ function HooksCard({
   )
 }
 
+/** Compact preference toggles: notification routing + plain-tab visibility. */
+function PrefsRow({
+  prefs,
+  onPatch
+}: {
+  prefs: PanelPrefs
+  onPatch: (patch: Partial<PanelPrefs>) => void
+}): JSX.Element {
+  const toggle = (
+    key: keyof PanelPrefs,
+    label: string,
+    title: string
+  ): JSX.Element => (
+    <button
+      className={`term-toggle ${prefs[key] ? 'active' : ''}`}
+      onClick={() => onPatch({ [key]: !prefs[key] })}
+      title={title}
+    >
+      {label}
+    </button>
+  )
+  return (
+    <div className="term-prefs-row">
+      {toggle('notifyPermission', 'perm alerts', 'Notify when a session needs permission')}
+      {toggle('notifyInput', 'turn alerts', 'Notify when a turn finishes (your turn)')}
+      {toggle('notifyStale', 'stale nudge', 'One reminder when a session has waited 5+ minutes')}
+      {toggle('showPlainTerminals', 'shell tabs', 'Show terminals that are not running Claude')}
+    </div>
+  )
+}
+
 /** Standalone terminals panel rendered inside its own docked window. Fetches
  *  and polls independently of the main command-center window. */
 export default function TerminalsWindow(): JSX.Element {
   const [snap, setSnap] = useState<TerminalsSnapshot | null>(null)
+  const [events, setEvents] = useState<AgentTimelineEvent[]>([])
+  const [view, setView] = useState<'terminals' | 'events'>('terminals')
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState<string | null>(null)
   const [hooks, setHooks] = useState<HooksStatus | null>(null)
   const [hooksBusy, setHooksBusy] = useState(false)
+  const [prefs, setPrefs] = useState<PanelPrefs | null>(null)
 
   const load = useCallback(async () => {
     try {
       const repos = await window.api.listRepos()
-      setSnap(await window.api.getTerminals(repos))
+      const [snapshot, timeline] = await Promise.all([
+        window.api.getTerminals(repos),
+        window.api.getAgentTimeline(repos)
+      ])
+      setSnap(snapshot)
+      setEvents(timeline)
     } finally {
       setLoading(false)
     }
   }, [])
 
-  const handleInstallHooks = useCallback(async () => {
+  const handleInstallHooks = useCallback(async (detailed: boolean) => {
     setHooksBusy(true)
     try {
-      setHooks(await window.api.installHooks())
+      setHooks(await window.api.installHooks(detailed))
     } finally {
       setHooksBusy(false)
     }
@@ -250,8 +375,22 @@ export default function TerminalsWindow(): JSX.Element {
     }
   }, [])
 
+  const handlePatchPrefs = useCallback(async (patch: Partial<PanelPrefs>) => {
+    setPrefs(await window.api.setPanelPrefs(patch))
+  }, [])
+
+  const handleActivateHost = useCallback(async (host: string) => {
+    const r = await window.api.activateHostApp(host)
+    if (!r.success) {
+      const msg = r.error ?? 'Could not focus that app.'
+      setToast(msg)
+      window.setTimeout(() => setToast((t) => (t === msg ? null : t)), 3500)
+    }
+  }, [])
+
   useEffect(() => {
     window.api.getHooksStatus().then(setHooks)
+    window.api.getPanelPrefs().then(setPrefs)
   }, [])
 
   // Hook events push state changes instantly — refresh without waiting a poll.
@@ -285,12 +424,17 @@ export default function TerminalsWindow(): JSX.Element {
     }
   }, [])
 
-  const entries = [...(snap?.entries ?? [])].sort(
+  const allEntries = [...(snap?.entries ?? [])].sort(
     (a, b) => rank(a.agent, a.busy) - rank(b.agent, b.busy)
   )
+  // Hiding plain tabs is a visibility preference only — waiting counts and
+  // notifications always consider everything.
+  const entries =
+    prefs && !prefs.showPlainTerminals ? allEntries.filter((e) => e.agent) : allEntries
   const unbound = snap?.unbound ?? []
   const waiting =
-    entries.filter((e) => isWaiting(e.agent)).length + unbound.filter((s) => isWaiting(s)).length
+    allEntries.filter((e) => isWaiting(e.agent)).length +
+    unbound.filter((s) => isWaiting(s)).length
   const denied: string[] = []
   if (snap?.automation.terminal === 'denied') denied.push('Terminal')
   if (snap?.automation.iterm === 'denied') denied.push('iTerm2')
@@ -300,12 +444,19 @@ export default function TerminalsWindow(): JSX.Element {
     <div className="term-window">
       <div className="term-header">
         <div className="term-header-left">
-          <span className="term-window-title">Terminals</span>
-          {waiting > 0 && (
-            <span className="term-wait-badge">
-              {waiting} waiting on you
-            </span>
-          )}
+          <button
+            className={`term-tab ${view === 'terminals' ? 'active' : ''}`}
+            onClick={() => setView('terminals')}
+          >
+            Terminals
+          </button>
+          <button
+            className={`term-tab ${view === 'events' ? 'active' : ''}`}
+            onClick={() => setView('events')}
+          >
+            Events
+          </button>
+          {waiting > 0 && <span className="term-wait-badge">{waiting} waiting on you</span>}
         </div>
       </div>
 
@@ -318,44 +469,69 @@ export default function TerminalsWindow(): JSX.Element {
           </div>
         )}
 
-        {denied.length > 0 && (
-          <div className="term-notice">
-            Grant Automation access to list {denied.join(' and ')} windows: System Settings →
-            Privacy &amp; Security → Automation → Agentic Command Center.
-          </div>
-        )}
-
-        {empty && (
-          <div className="feed-empty">
-            No terminals found.
-            {snap?.automation.terminal === 'not-running' &&
-              snap?.automation.iterm === 'not-running' &&
-              ' Neither Terminal nor iTerm2 is running.'}
-          </div>
-        )}
-
-        {entries.map((e) => (
-          <EntryRow key={`${e.app}-${e.windowId}-${e.tabIndex}-${e.tty ?? 'no-tty'}`} entry={e} onFocus={handleFocus} />
-        ))}
-
-        {unbound.length > 0 && (
+        {view === 'terminals' && (
           <>
-            <div className="term-section">Elsewhere</div>
-            {unbound.map((s) => (
-              <UnboundRow key={`${s.pid}`} session={s} />
+            {denied.length > 0 && (
+              <div className="term-notice">
+                Grant Automation access to list {denied.join(' and ')} windows: System Settings →
+                Privacy &amp; Security → Automation → Agentic Command Center.
+              </div>
+            )}
+
+            {empty && (
+              <div className="feed-empty">
+                No terminals found.
+                {snap?.automation.terminal === 'not-running' &&
+                  snap?.automation.iterm === 'not-running' &&
+                  ' Neither Terminal nor iTerm2 is running.'}
+              </div>
+            )}
+
+            {entries.map((e) => (
+              <EntryRow
+                key={`${e.app}-${e.windowId}-${e.tabIndex}-${e.tty ?? 'no-tty'}`}
+                entry={e}
+                onFocus={handleFocus}
+              />
+            ))}
+
+            {unbound.length > 0 && (
+              <>
+                <div className="term-section">Elsewhere</div>
+                {unbound.map((s) => (
+                  <UnboundRow key={`${s.pid}`} session={s} onActivate={handleActivateHost} />
+                ))}
+              </>
+            )}
+          </>
+        )}
+
+        {view === 'events' && (
+          <>
+            {!loading && events.length === 0 && (
+              <div className="feed-empty">
+                No agent events yet. Events appear for sessions covered by the exact-states hooks
+                (or launched from the app).
+              </div>
+            )}
+            {events.map((ev, i) => (
+              <TimelineRow key={`${ev.sessionId}-${ev.ts}-${i}`} ev={ev} />
             ))}
           </>
         )}
       </div>
 
-      {hooks && (
-        <HooksCard
-          hooks={hooks}
-          busy={hooksBusy}
-          onInstall={handleInstallHooks}
-          onUninstall={handleUninstallHooks}
-        />
-      )}
+      <div className="term-footer">
+        {prefs && <PrefsRow prefs={prefs} onPatch={handlePatchPrefs} />}
+        {hooks && (
+          <HooksCard
+            hooks={hooks}
+            busy={hooksBusy}
+            onInstall={handleInstallHooks}
+            onUninstall={handleUninstallHooks}
+          />
+        )}
+      </div>
 
       {toast && <div className="toast term-toast">{toast}</div>}
     </div>

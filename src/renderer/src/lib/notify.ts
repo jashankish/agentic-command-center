@@ -1,6 +1,7 @@
 import type {
   AgentSessionState,
   ClaudeUsage,
+  PanelPrefs,
   RepoInsights,
   TerminalsSnapshot
 } from '../../../shared/types'
@@ -90,7 +91,7 @@ const repoLabel = (s: AgentSessionState): string => {
   return p ? p.split('/').pop() || p : 'a session'
 }
 
-export function checkAgentNotifications(snap: TerminalsSnapshot): void {
+export function checkAgentNotifications(snap: TerminalsSnapshot, prefs: PanelPrefs): void {
   const sessions: AgentSessionState[] = [
     ...snap.entries.flatMap((e) => (e.agent ? [e.agent] : [])),
     ...snap.unbound
@@ -101,15 +102,23 @@ export function checkAgentNotifications(snap: TerminalsSnapshot): void {
     seen.add(key)
 
     const prev = lastAgentState.get(key)
-    if (agentsPrimed && s.state === 'permission' && prev !== 'permission') {
+    if (agentsPrimed && prefs.notifyPermission && s.state === 'permission' && prev !== 'permission') {
       const what = s.detail?.summary
         ? `${s.detail.tool ?? 'a tool'} — ${s.detail.summary}`
         : (s.detail?.tool ?? 'a tool')
       fire('Claude needs permission', `${repoLabel(s)}: wants to use ${what}`)
     }
+    if (agentsPrimed && prefs.notifyInput && s.state === 'input' && prev && prev !== 'input') {
+      fire('Claude finished — your turn', `${repoLabel(s)} is waiting for your reply`)
+    }
     lastAgentState.set(key, s.state)
 
-    if (agentsPrimed && (s.state === 'permission' || s.state === 'input') && s.since) {
+    if (
+      agentsPrimed &&
+      prefs.notifyStale &&
+      (s.state === 'permission' || s.state === 'input') &&
+      s.since
+    ) {
       const waited = Date.now() - new Date(s.since).getTime()
       const spell = `${key}:${s.state}:${s.since}`
       if (waited > ESCALATE_AFTER_MS && waited < ESCALATE_CUTOFF_MS && !escalatedSpells.has(spell)) {
