@@ -2,21 +2,138 @@ node_modules/
 out/
 dist/
 *.log
+*.log.*
+logs/
 .DS_Store
 .vite/
 .claude/
+CLAUDE.md
 
-# Secrets — never commit credentials. Auth is delegated to the OS keychain via
-# git/gh; nothing secret should ever live in the repo. These patterns are a
-# safety net so a contributor can't accidentally commit local tokens/keys.
+# Secrets & personal data — never commit credentials or identifying data.
+# Auth is delegated to the OS keychain via git/gh; nothing secret should ever
+# live in the repo. Everything below is a safety net so a contributor can't
+# accidentally commit local tokens, keys, exports, or scratch files. If a
+# matched file is genuinely safe to publish, whitelist it explicitly with a
+# `!pattern` line or `git add -f` — the friction is the point. Two caveats:
+# .gitignore can't protect files that are already tracked (`git rm --cached`
+# them first), and it's no substitute for a secret scanner (e.g. gitleaks).
+
+# Environment & local config
 .env
 .env.*
+*.env
+.envrc
+.direnv/
 *.local
+secrets.*
+*.secret
+*.secrets
+credentials.*
+**/credentials
+private/
+*.private
+
+# Keys, certificates & signing material
 *.pem
 *.key
+*.keystore
+*.jks
 *.p12
+*.pfx
+*.p8
+AuthKey_*
+*.cer
+*.crt
+*.der
+*.csr
+*.gpg
+*.pgp
+*.asc
+*.ppk
+id_rsa*
+id_ed25519*
+id_ecdsa*
+*.mobileprovision
+*.provisionprofile
 *.keychain
+*.keychain-db
+*.kdbx
+*.1pif
+
+# Cloud, registry & tooling auth
+.npmrc
+.yarnrc
+.yarnrc.yml
+.pypirc
 .netrc
-secrets.json
+_netrc
+.boto
+.aws/
+.azure/
+.docker/
+.kube/
+kubeconfig*
+service-account*.json
+*service_account*.json
+*adminsdk*.json
 gh-token*
-**/credentials
+*.token
+.vault-token
+.pgpass
+.pg_service.conf
+.my.cnf
+.mylogin.cnf
+.htpasswd
+.authinfo*
+*.tfstate
+*.tfstate.*
+*.tfvars
+.terraform/
+
+# Databases, dumps & data exports — frequent carriers of personal data
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.sql
+*.dump
+*.dmp
+*.bak
+*.backup
+*.csv
+*.tsv
+*.xlsx
+*.xls
+*.parquet
+*.jsonl
+*.har
+*.pcap
+*.pcapng
+
+# Crash artifacts — process memory can embed live secrets
+*.core
+*.crash
+*.stackdump
+*.heapsnapshot
+*.hprof
+
+# Shell & tool history
+.history
+.*_history
+.lesshst
+
+# OS & editor leftovers (machine paths, scratch buffers, swap contents)
+._*
+.Trashes
+.Spotlight-V100
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.idea/
+.vscode/
+*.code-workspace
+*.sw?
+*~
+*.orig
+*.old
