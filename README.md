@@ -316,9 +316,21 @@ question at a glance: **which of my Claude sessions needs me right now?**
   kept beside it, and **Disable** removes exactly those entries. With hooks on, Claude Code itself
   reports permission prompts and finished turns, and the panel updates **instantly** instead of on
   the next poll. The hooks fire only on session lifecycle events — never per tool call — so Claude
-  is not slowed down.
+  is not slowed down. An optional **per-tool detail** checkbox adds PreToolUse/PostToolUse so
+  entries read "working · Bash" while a tool runs, at the cost of one recorder spawn around every
+  tool call.
+- **Events tab.** The panel's second tab is a newest-first timeline of agent lifecycle moments —
+  session started, prompt submitted, *asked to use a tool* (with the redacted command), turn
+  finished, session ended — for sessions covered by the hooks (or launched from the app).
+- **Start a session.** The spark button on each repo card — or **⌘K → "Start Claude session
+  in …"** — opens a new Terminal window at that repo running `claude`. Sessions launched this way
+  are tracked even without the global hooks (a per-launch `--settings` file wires the same
+  recorder).
+- **Preferences.** Footer toggles control the alerts (permission / your-turn / stale nudge) and
+  whether plain shell tabs are listed; they persist with the app's other settings.
 - **Elsewhere.** Claude sessions in terminals the app can't enumerate (tmux, IDE terminal panes)
-  still appear, labeled with their hosting app when derivable from the process tree.
+  still appear, labeled with their hosting app when derivable from the process tree — clicking one
+  brings that app to the front (tmux excepted).
 - macOS asks once per terminal app for **Automation** permission ("wants to control Terminal /
   iTerm2") the first time the panel lists or focuses it; declining just hides that app's tabs.
 
@@ -784,10 +796,11 @@ session starts/ends per session id, and the panel updates instantly instead of o
 
 **What exactly does "Enable exact states" change on my machine?**
 Two things: a small recorder script is written under the app's data folder, and six hook entries
-pointing at it are merged into `~/.claude/settings.json` — the consent box shows the exact JSON
-first, and a timestamped backup of the previous file is kept beside it. The hooks fire only on
-session lifecycle events (never per tool call), so Claude is not slowed down. **Disable** removes
-exactly those entries and the script, leaving any other hooks you have untouched.
+pointing at it (eight with the per-tool detail option) are merged into `~/.claude/settings.json` —
+the consent box shows the exact JSON first, and a timestamped backup of the previous file is kept
+beside it. The default hook set fires only on session lifecycle events (never per tool call), so
+Claude is not slowed down. **Disable** removes exactly those entries and the script, leaving any
+other hooks you have untouched.
 
 **Where do hook events go, and what's in them?**
 One small JSON-lines file per session under the app's data folder (`agent-events/`, permissions
