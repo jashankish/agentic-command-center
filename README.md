@@ -328,9 +328,12 @@ question at a glance: **which of my Claude sessions needs me right now?**
   recorder).
 - **Preferences.** Footer toggles control the alerts (permission / your-turn / stale nudge) and
   whether plain shell tabs are listed; they persist with the app's other settings.
-- **Elsewhere.** Claude sessions in terminals the app can't enumerate (tmux, IDE terminal panes)
-  still appear, labeled with their hosting app when derivable from the process tree — clicking one
-  brings that app to the front (tmux excepted).
+- **tmux.** Sessions inside tmux run on server-owned ptys, so the app maps pane → tmux session →
+  **attached client** → the tab hosting it. The entry is titled `tmux · session:window`, and
+  clicking it selects the right window **and pane inside tmux** before surfacing the tab.
+- **Elsewhere.** Claude sessions the app can't reach per-tab (detached tmux sessions, IDE terminal
+  panes) still appear, labeled with their hosting app when derivable from the process tree —
+  clicking one brings that app to the front (detached tmux excepted).
 - macOS asks once per terminal app for **Automation** permission ("wants to control Terminal /
   iTerm2") the first time the panel lists or focuses it; declining just hides that app's tabs.
 
@@ -784,9 +787,9 @@ content untouched; it follows the app as you move it and floats with it when pin
 
 **What do I need for the terminals panel?**
 Just a running Terminal.app or iTerm2 — macOS asks once per app for Automation permission the
-first time the panel lists it. Claude sessions inside tmux or IDE terminal panes still appear
-under **Elsewhere** (labeled with the hosting app when derivable); they just can't be focused
-per-tab.
+first time the panel lists it. Sessions inside tmux bind to the tab of an **attached client**
+(focusing selects the pane inside tmux too); detached tmux sessions and IDE terminal panes appear
+under **Elsewhere**, labeled with the hosting app when derivable.
 
 **What's the difference between inferred and exact session states?**
 *Inferred* (dashed badge): derived from the session's transcript tail and process activity — right

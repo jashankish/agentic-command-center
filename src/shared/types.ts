@@ -270,6 +270,14 @@ export interface AgentSessionState {
   repoPath: string | null
 }
 
+/** A tmux pane hosting a Claude session, focusable through an attached client. */
+export interface TmuxPaneRef {
+  /** Pane id, e.g. "%3" — stable for the pane's lifetime. */
+  pane: string
+  session: string
+  windowIndex: number
+}
+
 /** One enumerable terminal surface (a Terminal.app tab / an iTerm2 session). */
 export interface TerminalEntry {
   app: 'Terminal' | 'iTerm2'
@@ -290,6 +298,9 @@ export interface TerminalEntry {
   busy: boolean
   /** Claude session bound to this tty, when one exists. */
   agent: AgentSessionState | null
+  /** Set when the session lives in a tmux pane reached through this tab —
+   *  focusing then also selects the pane inside tmux. */
+  tmux?: TmuxPaneRef
 }
 
 /** Per-app AppleScript (Automation) consent state. */
@@ -311,8 +322,10 @@ export interface TerminalsSnapshot {
 /** Click-to-focus target; the tty is the stable cross-app join key. */
 export interface FocusTarget {
   app: 'Terminal' | 'iTerm2'
-  /** Normalized tty name, e.g. "ttys004". */
+  /** Normalized tty name, e.g. "ttys004" (for tmux: the *client's* tty). */
   tty: string
+  /** When set, the pane is revealed inside tmux before the tab is focused. */
+  tmux?: TmuxPaneRef
 }
 
 /** State of the opt-in Claude Code hook integration for exact session states. */

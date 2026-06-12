@@ -416,7 +416,7 @@ export default function TerminalsWindow(): JSX.Element {
 
   const handleFocus = useCallback(async (entry: TerminalEntry) => {
     if (!entry.tty) return
-    const r = await window.api.focusTerminal({ app: entry.app, tty: entry.tty })
+    const r = await window.api.focusTerminal({ app: entry.app, tty: entry.tty, tmux: entry.tmux })
     if (!r.success) {
       const msg = r.error ?? 'Could not focus that terminal.'
       setToast(msg)

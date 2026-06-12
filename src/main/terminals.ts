@@ -11,6 +11,7 @@ import type {
 import { getAgentSessions } from './agentsessions'
 import { foregroundOf, cwdOfPid, psScan, ttyHostApp } from './procs'
 import { redactError } from './redact'
+import { getTmuxMap, revealTmuxPane } from './tmux'
 
 /**
  * Terminal topology + process join (plan §3, layers L1+L2).
@@ -190,8 +191,38 @@ async function compute(repoPaths: string[]): Promise<TerminalsSnapshot> {
     ...iterm.surfaces.map((s) => toEntry('iTerm2', s))
   ])
 
-  // Sessions in terminals we couldn't enumerate (tmux, IDE panes, consent
-  // denied): still shown, labeled with the hosting app when derivable.
+  // tmux: a session on a server-owned pty binds to the tab hosting a client
+  // attached to its tmux session; focusing routes through tmux first (the
+  // plan's pane↔client mapping). Detached sessions stay in "Elsewhere".
+  const tmuxMap = await getTmuxMap()
+  if (tmuxMap) {
+    const entryByTty = new Map(entries.filter((e) => e.tty).map((e) => [e.tty!, e]))
+    for (const s of sessions) {
+      if (!s.tty || boundTtys.has(s.tty)) continue
+      const pane = tmuxMap.panesByTty.get(s.tty)
+      if (!pane) continue
+      const clients = tmuxMap.clientsBySession.get(pane.session) ?? []
+      const hostEntry = clients.map((c) => entryByTty.get(c)).find((e) => e !== undefined)
+      if (!hostEntry) continue
+      boundTtys.add(s.tty)
+      entries.push({
+        app: hostEntry.app,
+        windowId: hostEntry.windowId,
+        tabIndex: hostEntry.tabIndex,
+        tty: hostEntry.tty,
+        title: `tmux · ${pane.session}:${pane.windowIndex}`,
+        command: 'claude',
+        cwd: s.cwd,
+        repoPath: repoOf(repoPaths, s.cwd),
+        busy: hostEntry.busy,
+        agent: s,
+        tmux: { pane: pane.pane, session: pane.session, windowIndex: pane.windowIndex }
+      })
+    }
+  }
+
+  // Sessions in terminals we couldn't enumerate (detached tmux, IDE panes,
+  // consent denied): still shown, labeled with the hosting app when derivable.
   const unbound: UnboundSession[] = sessions
     .filter((s) => !s.tty || !boundTtys.has(s.tty))
     .map((s) => ({ ...s, host: s.tty ? (ttyHostApp(rows, s.tty) ?? undefined) : undefined }))
@@ -301,6 +332,8 @@ export async function focusTerminal(target: FocusTarget): Promise<CommitPushResu
     return { success: false, error: 'Invalid focus target.' }
   }
   try {
+    // tmux-hosted: reveal the pane first, then surface the client's tab.
+    if (target.tmux) await revealTmuxPane(target.tmux, target.tty)
     const { stdout } = await execFileAsync(OSA, ['-e', focusScript(target)], {
       timeout: OSA_TIMEOUT_MS
     })
