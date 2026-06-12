@@ -321,9 +321,40 @@ export interface HooksStatus {
   installed: boolean
   /** True when only some hooks are present (e.g. a partial manual edit). */
   partial: boolean
+  /** True when the per-tool-call hooks (PreToolUse/PostToolUse) are also on. */
+  detailed: boolean
   scriptPath: string
   settingsPath: string
   /** Pretty-printed JSON of exactly what install merges into settings.json. */
   preview: string
+  /** Same, for the detailed (per-tool telemetry) variant. */
+  previewDetailed: string
   error?: string
+}
+
+/** One recent Claude Code lifecycle event (hook-fed sessions only). */
+export interface AgentTimelineEvent {
+  /** ISO timestamp. */
+  ts: string
+  sessionId: string
+  kind: 'start' | 'prompt' | 'permission' | 'idle' | 'stop' | 'end'
+  cwd: string | null
+  /** Imported repo the event's cwd belongs to, or null. */
+  repoPath: string | null
+  /** The pending tool + redacted summary (kind 'permission'). */
+  detail?: { tool?: string; summary?: string }
+  /** First line of the submitted prompt (kind 'prompt'). */
+  prompt?: string
+}
+
+/** Terminals-panel preferences: notification routing + visibility. */
+export interface PanelPrefs {
+  /** Notify when a session starts waiting for permission. */
+  notifyPermission: boolean
+  /** Notify when a turn finishes (your-turn transitions). */
+  notifyInput: boolean
+  /** One nudge when a session has been waiting more than five minutes. */
+  notifyStale: boolean
+  /** Show terminals that aren't running Claude. */
+  showPlainTerminals: boolean
 }

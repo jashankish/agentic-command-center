@@ -1,7 +1,7 @@
 import { watch, type FSWatcher } from 'fs'
 import { mkdir, readdir, readFile, rm, stat } from 'fs/promises'
 import { join } from 'path'
-import type { AgentSessionState, AgentState } from '../shared/types'
+import type { AgentSessionState, AgentState, AgentTimelineEvent } from '../shared/types'
 import { psScan } from './procs'
 import { redactSecrets } from './redact'
 
@@ -49,6 +49,78 @@ interface HookPayload {
   message?: string
 }
 
+/** Recent lifecycle events for the panel's Events tab. In-memory only: it
+ *  survives session cleanup (so "what just happened" outlives the session)
+ *  but resets with the app. */
+const TIMELINE_CAP = 120
+const timeline: AgentTimelineEvent[] = []
+
+function pushTimeline(entry: AgentTimelineEvent): void {
+  // PermissionRequest and Notification(permission_prompt) both fire for one
+  // dialog — collapse the pair.
+  if (entry.kind === 'permission') {
+    const last = timeline[timeline.length - 1]
+    if (
+      last &&
+      last.kind === 'permission' &&
+      last.sessionId === entry.sessionId &&
+      Math.abs(new Date(entry.ts).getTime() - new Date(last.ts).getTime()) < 2_000
+    ) {
+      // Keep whichever carries detail.
+      if (entry.detail && !last.detail) timeline[timeline.length - 1] = entry
+      return
+    }
+  }
+  timeline.push(entry)
+  if (timeline.length > TIMELINE_CAP) timeline.splice(0, timeline.length - TIMELINE_CAP)
+}
+
+function timelineOf(s: EventSession, line: EventLine): void {
+  const ev = line.event ?? {}
+  const ts = line.ts ?? new Date().toISOString()
+  const base = { ts, sessionId: s.sessionId, cwd: ev.cwd ?? s.cwd, repoPath: null }
+  switch (ev.hook_event_name) {
+    case 'SessionStart':
+      pushTimeline({ ...base, kind: 'start' })
+      break
+    case 'UserPromptSubmit':
+      pushTimeline({ ...base, kind: 'prompt', prompt: ev.prompt ? firstLine(ev.prompt, 100) : undefined })
+      break
+    case 'PermissionRequest':
+      pushTimeline({
+        ...base,
+        kind: 'permission',
+        detail: { tool: ev.tool_name, summary: summarizeToolInput(ev.tool_input) }
+      })
+      break
+    case 'Notification':
+      if (ev.notification_type === 'permission_prompt') {
+        pushTimeline({
+          ...base,
+          kind: 'permission',
+          detail: ev.message ? { summary: redactSecrets(firstLine(ev.message, 80)) } : undefined
+        })
+      } else if (ev.notification_type === 'idle_prompt') {
+        pushTimeline({ ...base, kind: 'idle' })
+      }
+      break
+    case 'Stop':
+      pushTimeline({ ...base, kind: 'stop' })
+      break
+    case 'SessionEnd':
+      pushTimeline({ ...base, kind: 'end' })
+      break
+    default:
+      break
+  }
+}
+
+/** Recent events, newest first. repoPath is left null — the IPC layer
+ *  resolves it against the imported repo list. */
+export function getAgentTimeline(): AgentTimelineEvent[] {
+  return [...timeline].reverse()
+}
+
 interface EventLine {
   ts?: string
   pid?: number
@@ -71,6 +143,8 @@ interface EventSession {
   /** Epoch ms of the event that set a waiting state (clearing-rule anchor). */
   waitingSinceMs?: number
   endedAtMs?: number
+  /** Lines already emitted to the timeline (files are append-only). */
+  appliedLines: number
 }
 
 let eventsDir: string | null = null
@@ -138,6 +212,17 @@ function applyEvent(s: EventSession, line: EventLine): void {
       setWaiting(s, 'permission', ts)
       s.detail = { tool: ev.tool_name, summary: summarizeToolInput(ev.tool_input) }
       break
+    // Only present in the opt-in "detailed" hook variant: per-tool progress.
+    case 'PreToolUse':
+      s.state = 'working'
+      s.since = ts ?? s.since
+      s.detail = { tool: ev.tool_name, summary: summarizeToolInput(ev.tool_input) }
+      break
+    case 'PostToolUse':
+      s.state = 'working'
+      s.since = ts ?? s.since
+      s.detail = undefined
+      break
     case 'Notification':
       if (ev.notification_type === 'permission_prompt') {
         setWaiting(s, 'permission', ts)
@@ -180,20 +265,28 @@ async function applyFile(file: string): Promise<void> {
     pid: 0,
     tty: null,
     cwd: null,
-    transcriptPath: null
+    transcriptPath: null,
+    appliedLines: 0
   }
   // Reset state-machine output (identity fields persist) before re-folding.
   s.state = 'unknown'
   s.detail = undefined
   s.waitingSinceMs = undefined
-  for (const raw of text.split('\n')) {
-    if (!raw.trim()) continue
+  const lines = text.split('\n').filter((l) => l.trim())
+  for (let i = 0; i < lines.length; i++) {
+    let line: EventLine
     try {
-      applyEvent(s, JSON.parse(raw) as EventLine)
+      line = JSON.parse(lines[i]) as EventLine
     } catch {
       // torn or malformed line — skip
+      continue
     }
+    applyEvent(s, line)
+    // The file is append-only, so anything past the high-water mark is new —
+    // that's what feeds the Events tab without re-emitting on every re-fold.
+    if (i >= s.appliedLines) timelineOf(s, line)
   }
+  s.appliedLines = lines.length
   registry.set(sessionId, s)
   syncTranscriptWatcher(s)
 }

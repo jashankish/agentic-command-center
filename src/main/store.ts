@@ -1,14 +1,22 @@
 import Store from 'electron-store'
-import type { ViewMode, RepoMeta } from '../shared/types'
+import type { ViewMode, RepoMeta, PanelPrefs } from '../shared/types'
+
+const DEFAULT_PANEL_PREFS: PanelPrefs = {
+  notifyPermission: true,
+  notifyInput: false,
+  notifyStale: true,
+  showPlainTerminals: true
+}
 
 interface StoreSchema {
   repos: string[]
   viewMode: ViewMode
   repoMeta: Record<string, RepoMeta>
+  panelPrefs: PanelPrefs
 }
 
 const store = new Store<StoreSchema>({
-  defaults: { repos: [], viewMode: 'dashboard', repoMeta: {} }
+  defaults: { repos: [], viewMode: 'dashboard', repoMeta: {}, panelPrefs: DEFAULT_PANEL_PREFS }
 })
 
 export function listRepos(): string[] {
@@ -58,6 +66,18 @@ export function setRepoMeta(repoPath: string, patch: RepoMeta): Record<string, R
   else meta[repoPath] = next
   store.set('repoMeta', meta)
   return meta
+}
+
+/** Terminals-panel preferences. Defaults fill any keys missing from disk so
+ *  new preferences pick up their default on existing installs. */
+export function getPanelPrefs(): PanelPrefs {
+  return { ...DEFAULT_PANEL_PREFS, ...store.get('panelPrefs') }
+}
+
+export function setPanelPrefs(patch: Partial<PanelPrefs>): PanelPrefs {
+  const next = { ...getPanelPrefs(), ...patch }
+  store.set('panelPrefs', next)
+  return next
 }
 
 export interface Settings {

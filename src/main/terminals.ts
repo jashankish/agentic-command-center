@@ -267,6 +267,29 @@ end tell
 return "notfound"`
 }
 
+// Hosts we can at least bring to the foreground for sessions we can't focus
+// per-tab (the plan's app-level fallback). tmux is deliberately absent — its
+// host is whichever terminal the client is attached to.
+const HOST_APPS: Record<string, string> = {
+  Terminal: 'Terminal',
+  iTerm2: 'iTerm2',
+  Cursor: 'Cursor',
+  'VS Code': 'Visual Studio Code',
+  Ghostty: 'Ghostty'
+}
+
+/** App-level focus fallback for unbound sessions: just activate the host. */
+export async function activateHostApp(host: string): Promise<CommitPushResult> {
+  const app = HOST_APPS[host]
+  if (!app) return { success: false, error: 'No focusable app for that session.' }
+  try {
+    await execFileAsync('/usr/bin/open', ['-a', app])
+    return { success: true }
+  } catch (err) {
+    return { success: false, error: redactError(err) }
+  }
+}
+
 /** Bring the window/tab owning a tty to the front. UI focus only — nothing else. */
 export async function focusTerminal(target: FocusTarget): Promise<CommitPushResult> {
   // The tty is interpolated into AppleScript — accept only the exact shape ps

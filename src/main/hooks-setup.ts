@@ -49,7 +49,7 @@ export interface SettingsShape {
   [k: string]: unknown
 }
 
-export function buildHookEntries(scriptPath: string): Record<string, HookGroup[]> {
+export function buildHookEntries(scriptPath: string, detailed = false): Record<string, HookGroup[]> {
   const entry = (matcher?: string): HookGroup => ({
     ...(matcher ? { matcher } : {}),
     hooks: [{ type: 'command', command: scriptPath }]
@@ -60,21 +60,29 @@ export function buildHookEntries(scriptPath: string): Record<string, HookGroup[]
     PermissionRequest: [entry()],
     Notification: [entry(NOTIFICATION_MATCHER)],
     Stop: [entry()],
-    SessionEnd: [entry()]
+    SessionEnd: [entry()],
+    // The detailed variant adds per-tool progress ("working · Bash") at the
+    // cost of one recorder spawn before and after every tool call.
+    ...(detailed ? { PreToolUse: [entry()], PostToolUse: [entry()] } : {})
   }
 }
 
 const hasCommandUnder = (g: HookGroup, dir: string): boolean =>
   (g.hooks ?? []).some((h) => typeof h.command === 'string' && h.command.startsWith(dir))
 
-/** Add our entries, replacing any previous copies (idempotent re-install). */
-export function mergeHookSettings(settings: SettingsShape, scriptPath: string): SettingsShape {
-  const ourDir = dirname(scriptPath)
-  const merged: Record<string, HookGroup[]> = { ...(settings.hooks ?? {}) }
-  for (const [event, groups] of Object.entries(buildHookEntries(scriptPath))) {
-    merged[event] = [...(merged[event] ?? []).filter((g) => !hasCommandUnder(g, ourDir)), ...groups]
+/** Add our entries, replacing any previous copies (idempotent re-install;
+ *  switching variants strips the other variant's extra events first). */
+export function mergeHookSettings(
+  settings: SettingsShape,
+  scriptPath: string,
+  detailed = false
+): SettingsShape {
+  const stripped = removeHookSettings(settings, dirname(scriptPath))
+  const merged: Record<string, HookGroup[]> = { ...(stripped.hooks ?? {}) }
+  for (const [event, groups] of Object.entries(buildHookEntries(scriptPath, detailed))) {
+    merged[event] = [...(merged[event] ?? []), ...groups]
   }
-  return { ...settings, hooks: merged }
+  return { ...stripped, hooks: merged }
 }
 
 /** Remove exactly our entries; prune groups/keys that become empty. */
@@ -107,6 +115,12 @@ export function hookInstallState(
   )
   if (present.length === HOOK_EVENTS.length) return 'installed'
   return present.length > 0 ? 'partial' : 'none'
+}
+
+/** True when the per-tool (PreToolUse) hook is also pointed at our recorder. */
+export function isDetailedInstall(settings: SettingsShape, scriptPath: string): boolean {
+  const ourDir = dirname(scriptPath)
+  return (settings.hooks?.PreToolUse ?? []).some((g) => hasCommandUnder(g, ourDir))
 }
 
 /** The recorder itself: dependency-free /bin/sh, stdin → one JSON line.
@@ -198,17 +212,22 @@ async function writeSettings(path: string, data: SettingsShape, existed: boolean
 async function status(error?: string): Promise<HooksStatus> {
   const { scriptPath } = hookPaths()
   let state: 'installed' | 'partial' | 'none' = 'none'
+  let detailed = false
   try {
-    state = hookInstallState((await readSettings()).data, scriptPath)
+    const { data } = await readSettings()
+    state = hookInstallState(data, scriptPath)
+    detailed = isDetailedInstall(data, scriptPath)
   } catch {
     state = 'none'
   }
   return {
     installed: state === 'installed',
     partial: state === 'partial',
+    detailed,
     scriptPath,
     settingsPath: SETTINGS_PATH,
     preview: JSON.stringify({ hooks: buildHookEntries(scriptPath) }, null, 2),
+    previewDetailed: JSON.stringify({ hooks: buildHookEntries(scriptPath, true) }, null, 2),
     error
   }
 }
@@ -217,7 +236,7 @@ export async function getHooksStatus(): Promise<HooksStatus> {
   return status()
 }
 
-export async function installHooks(): Promise<HooksStatus> {
+export async function installHooks(detailed = false): Promise<HooksStatus> {
   try {
     const { scriptDir, scriptPath, eventsDir } = hookPaths()
     await mkdir(scriptDir, { recursive: true })
@@ -226,7 +245,7 @@ export async function installHooks(): Promise<HooksStatus> {
     await chmod(scriptPath, 0o755)
 
     const { data, path, existed } = await readSettings()
-    await writeSettings(path, mergeHookSettings(data, scriptPath), existed)
+    await writeSettings(path, mergeHookSettings(data, scriptPath, detailed), existed)
     return status()
   } catch (err) {
     return status(redactError(err))

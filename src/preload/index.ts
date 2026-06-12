@@ -17,7 +17,9 @@ import type {
   CommitFeed,
   TerminalsSnapshot,
   FocusTarget,
-  HooksStatus
+  HooksStatus,
+  AgentTimelineEvent,
+  PanelPrefs
 } from '../shared/types'
 
 const api = {
@@ -75,9 +77,21 @@ const api = {
   focusTerminal: (target: FocusTarget): Promise<CommitPushResult> =>
     ipcRenderer.invoke('terminals:focus', target),
 
+  // App-level focus for sessions in hosts we can't address per-tab.
+  activateHostApp: (host: string): Promise<CommitPushResult> =>
+    ipcRenderer.invoke('terminals:activateApp', host),
+  // Recent Claude lifecycle events (Events tab), newest first.
+  getAgentTimeline: (paths: string[]): Promise<AgentTimelineEvent[]> =>
+    ipcRenderer.invoke('sessions:timeline', paths),
+  // Terminals-panel preferences (notification routing + visibility).
+  getPanelPrefs: (): Promise<PanelPrefs> => ipcRenderer.invoke('prefs:get'),
+  setPanelPrefs: (patch: Partial<PanelPrefs>): Promise<PanelPrefs> =>
+    ipcRenderer.invoke('prefs:set', patch),
+
   // Opt-in Claude Code hooks for exact session states.
   getHooksStatus: (): Promise<HooksStatus> => ipcRenderer.invoke('hooks:status'),
-  installHooks: (): Promise<HooksStatus> => ipcRenderer.invoke('hooks:install'),
+  installHooks: (detailed?: boolean): Promise<HooksStatus> =>
+    ipcRenderer.invoke('hooks:install', detailed),
   uninstallHooks: (): Promise<HooksStatus> => ipcRenderer.invoke('hooks:uninstall'),
   // Hook events landed — refetch session state now instead of waiting a poll.
   onSessionsUpdate: (cb: () => void): (() => void) => {

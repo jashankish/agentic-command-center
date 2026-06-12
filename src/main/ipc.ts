@@ -20,8 +20,9 @@ import { getStandup } from './standup'
 import { getSystemStats } from './system'
 import { getCalendar } from './calendar'
 import { getCommitFeed } from './commitfeed'
-import { getTerminals, focusTerminal } from './terminals'
+import { getTerminals, focusTerminal, activateHostApp } from './terminals'
 import { getHooksStatus, installHooks, uninstallHooks } from './hooks-setup'
+import { getAgentTimeline } from './agentevents'
 import {
   listRepos,
   addRepo,
@@ -30,10 +31,12 @@ import {
   setViewMode,
   getRepoMeta,
   setRepoMeta,
+  getPanelPrefs,
+  setPanelPrefs,
   exportSettings,
   importSettings
 } from './store'
-import type { ViewMode, RepoMeta, FocusTarget } from '../shared/types'
+import type { ViewMode, RepoMeta, FocusTarget, PanelPrefs } from '../shared/types'
 
 export function registerIpc(): void {
   ipcMain.handle('repos:list', () => listRepos())
@@ -69,13 +72,35 @@ export function registerIpc(): void {
   ipcMain.handle('terminals:focus', (_e, target: FocusTarget) => focusTerminal(target))
 
   ipcMain.handle('hooks:status', () => getHooksStatus())
-  ipcMain.handle('hooks:install', () => installHooks())
+  ipcMain.handle('hooks:install', (_e, detailed?: boolean) => installHooks(!!detailed))
   ipcMain.handle('hooks:uninstall', () => uninstallHooks())
 
+  // Recent lifecycle events for the panel's Events tab, repo-resolved here so
+  // the watcher module stays electron- and repo-agnostic.
+  ipcMain.handle('sessions:timeline', (_e, paths: string[]) =>
+    getAgentTimeline().map((ev) => ({
+      ...ev,
+      repoPath:
+        ev.cwd === null
+          ? null
+          : (paths.find((r) => ev.cwd === r || ev.cwd!.startsWith(r + '/')) ?? null)
+    }))
+  )
+
+  ipcMain.handle('terminals:activateApp', (_e, host: string) => activateHostApp(String(host)))
+
+  ipcMain.handle('prefs:get', () => getPanelPrefs())
+  ipcMain.handle('prefs:set', (_e, patch: Partial<PanelPrefs>) => setPanelPrefs(patch))
+
   // Dock badge: count of sessions blocked on the user (renderer computes it
-  // alongside the health-bar chip; clearing means passing 0).
+  // alongside the health-bar chip; clearing means passing 0). A *rising*
+  // count also bounces the dock icon once.
+  let lastBadge = 0
   ipcMain.handle('badge:set', (_e, n: number) => {
-    app.setBadgeCount(Number.isFinite(n) && n > 0 ? Math.floor(n) : 0)
+    const count = Number.isFinite(n) && n > 0 ? Math.floor(n) : 0
+    if (count > lastBadge) app.dock?.bounce('informational')
+    lastBadge = count
+    app.setBadgeCount(count)
   })
 
   ipcMain.handle('view:get', () => getViewMode())
