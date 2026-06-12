@@ -16,6 +16,8 @@ interface Props {
   devServers: DevServer[]
   system: SystemStats | null
   calendar: CalendarData | null
+  /** Claude sessions currently blocked on the user (terminals panel). */
+  agentsWaiting?: number
 }
 
 function nextEvent(calendar: CalendarData | null): string | null {
@@ -46,7 +48,8 @@ export default function HealthBar({
   claude,
   devServers,
   system,
-  calendar
+  calendar,
+  agentsWaiting = 0
 }: Props): JSX.Element {
   const attention = statuses.filter((s) => deriveState(s).needsAttention).length
   const ciFail = Object.values(insights).filter((i) => i.ci === 'fail').length
@@ -54,6 +57,16 @@ export default function HealthBar({
   const activeAgents = claude?.projects.filter((p) => p.active).length ?? 0
 
   const chips: Chip[] = []
+
+  // Blocked agents outrank everything — that's work stalled on a click.
+  if (agentsWaiting > 0) {
+    chips.push({
+      key: 'waiting',
+      tone: 'red',
+      label: `${agentsWaiting} waiting on you`,
+      title: 'Claude Code sessions blocked on a permission prompt or your reply — open the terminals panel'
+    })
+  }
 
   if (attention > 0) {
     chips.push({

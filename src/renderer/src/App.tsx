@@ -32,7 +32,8 @@ import {
   IconSearch,
   IconClipboard,
   IconInfo,
-  IconActivity
+  IconActivity,
+  IconTerminal
 } from './components/icons'
 import { deriveState } from './lib/status'
 import { checkNotifications, requestNotifyPermission } from './lib/notify'
@@ -66,6 +67,11 @@ export default function App(): JSX.Element {
   // Whether the separate, docked feed window is currently open. The main process
   // owns the real state; this just drives the toolbar toggle's highlight.
   const [feedOpen, setFeedOpen] = useState(false)
+  // Same for the docked terminals panel.
+  const [terminalsOpen, setTerminalsOpen] = useState(false)
+  // Claude sessions currently blocked on the user (permission prompt, or a
+  // recently finished turn) — drives the health-bar chip and toolbar pulse.
+  const [agentsWaiting, setAgentsWaiting] = useState(0)
 
   const flash = useCallback((msg: string) => {
     setToast(msg)
@@ -117,10 +123,33 @@ export default function App(): JSX.Element {
   const loadSystem = useCallback(async () => setSystem(await window.api.getSystemStats()), [])
   const loadCalendar = useCallback(async () => setCalendar(await window.api.getCalendar()), [])
 
+  // Light pass over the terminals snapshot to keep the "waiting on you" chip
+  // honest even while the panel is closed. Permission prompts always count;
+  // finished turns only while fresh (a session idle for hours isn't urgent).
+  const loadTerminals = useCallback(async () => {
+    const repos = await window.api.listRepos()
+    const snap = await window.api.getTerminals(repos)
+    const RECENT_MS = 30 * 60_000
+    const waiting = (s: { state: string; since: string | null } | null): boolean => {
+      if (!s) return false
+      if (s.state === 'permission') return true
+      if (s.state !== 'input') return false
+      return !!s.since && Date.now() - new Date(s.since).getTime() < RECENT_MS
+    }
+    setAgentsWaiting(
+      snap.entries.filter((e) => waiting(e.agent)).length +
+        snap.unbound.filter((s) => waiting(s)).length
+    )
+  }, [])
+
   // Open/close the docked feed window in the main process; it returns the
   // resulting state (the single source of truth) which we mirror for the toggle.
   const handleToggleFeed = useCallback(async () => {
     setFeedOpen(await window.api.toggleFeed())
+  }, [])
+
+  const handleToggleTerminals = useCallback(async () => {
+    setTerminalsOpen(await window.api.toggleTerminals())
   }, [])
 
   const reloadAll = useCallback(() => {
@@ -130,11 +159,13 @@ export default function App(): JSX.Element {
     loadInsights()
     loadMeta()
     loadInbox()
-  }, [refresh, loadDevServers, loadClaude, loadInsights, loadMeta, loadInbox])
+    loadTerminals()
+  }, [refresh, loadDevServers, loadClaude, loadInsights, loadMeta, loadInbox, loadTerminals])
 
-  // The feed window can be closed out from under us (e.g. ⌘W); clear the toggle
-  // highlight when the main process reports it gone.
+  // Docked windows can be closed out from under us (e.g. ⌘W); clear the toggle
+  // highlight when the main process reports one gone.
   useEffect(() => window.api.onFeedClosed(() => setFeedOpen(false)), [])
+  useEffect(() => window.api.onTerminalsClosed(() => setTerminalsOpen(false)), [])
 
   useEffect(() => {
     reloadAll()
@@ -147,6 +178,7 @@ export default function App(): JSX.Element {
       refresh()
       loadDevServers()
       loadSystem()
+      loadTerminals()
     }, 15000)
     const medium = setInterval(() => {
       loadClaude()
@@ -405,6 +437,21 @@ export default function App(): JSX.Element {
           >
             <IconActivity />
           </button>
+          <button
+            className={`icon-btn ${terminalsOpen ? 'active' : ''} ${
+              agentsWaiting > 0 && !terminalsOpen ? 'attn' : ''
+            }`}
+            onClick={handleToggleTerminals}
+            title={
+              agentsWaiting > 0
+                ? `${agentsWaiting} Claude session${agentsWaiting === 1 ? '' : 's'} waiting on you`
+                : terminalsOpen
+                  ? 'Close terminals panel'
+                  : 'Open terminals panel'
+            }
+          >
+            <IconTerminal />
+          </button>
           <button className="icon-btn" onClick={() => setPaletteOpen(true)} title="Command palette (⌘K)">
             <IconSearch />
           </button>
@@ -449,6 +496,7 @@ export default function App(): JSX.Element {
         devServers={devServers}
         system={system}
         calendar={calendar}
+        agentsWaiting={agentsWaiting}
       />
 
       <h2 className="section-title">Repositories</h2>

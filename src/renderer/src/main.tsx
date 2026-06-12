@@ -2,15 +2,23 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import FeedWindow from './components/FeedWindow'
+import TerminalsWindow from './components/TerminalsWindow'
 import './styles.css'
 import { initTooltips } from './lib/tooltip'
 
 initTooltips()
 
-// The docked activity-feed window loads this same bundle with a `#feed` hash and
-// mounts only the feed surface; everything else is the full command center.
-const isFeedWindow = window.location.hash === '#feed'
+// Docked panel windows load this same bundle with a location hash and mount
+// only their surface; everything else is the full command center.
+const surface =
+  window.location.hash === '#feed' ? (
+    <FeedWindow />
+  ) : window.location.hash === '#terminals' ? (
+    <TerminalsWindow />
+  ) : (
+    <App />
+  )
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
-  <React.StrictMode>{isFeedWindow ? <FeedWindow /> : <App />}</React.StrictMode>
+  <React.StrictMode>{surface}</React.StrictMode>
 )

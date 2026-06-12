@@ -46,7 +46,10 @@
     ],
     "mac": {
       "target": "dmg",
-      "category": "public.app-category.developer-tools"
+      "category": "public.app-category.developer-tools",
+      "extendInfo": {
+        "NSAppleEventsUsageDescription": "Used to read today's calendar, list your open terminal windows, and focus the terminal you click in the terminals panel."
+      }
     }
   }
 }

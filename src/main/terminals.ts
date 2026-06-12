@@ -154,10 +154,22 @@ async function compute(repoPaths: string[]): Promise<TerminalsSnapshot> {
   const sessionByTty = new Map(sessions.filter((s) => s.tty).map((s) => [s.tty!, s]))
   const boundTtys = new Set<string>()
 
+  // Claude Code prefixes its terminal title with a Braille spinner frame while
+  // actively working ("⠐ …") and "✳" once it's idle at the prompt. The title
+  // is *per tab*, so it disambiguates two sessions sharing one project dir,
+  // where the transcript-derived state is project-level: trust the glyph when
+  // it contradicts the inference (never overriding a permission state).
+  const SPINNER = /^[⠀-⣿]/
+
   const toEntry = async (app: TerminalEntry['app'], raw: RawSurface): Promise<TerminalEntry> => {
     const fg = raw.tty ? foregroundOf(rows, raw.tty) : null
     const cwd = fg ? await cwdOfPid(fg.pid) : null
-    const agent = raw.tty ? (sessionByTty.get(raw.tty) ?? null) : null
+    let agent = raw.tty ? (sessionByTty.get(raw.tty) ?? null) : null
+    if (agent && SPINNER.test(raw.title)) {
+      agent = { ...agent, state: 'working' }
+    } else if (agent?.state === 'working' && raw.title.startsWith('✳')) {
+      agent = { ...agent, state: 'input' }
+    }
     if (raw.tty && agent) boundTtys.add(raw.tty)
     return {
       app,
