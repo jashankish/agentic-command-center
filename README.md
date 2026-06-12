@@ -7,7 +7,9 @@ center** for every project you work on. Instead of juggling terminals, GitHub ta
 Code, it pulls all of it into one window: each repo's git status, CI result, open pull requests,
 Claude Code cost and sessions, running dev servers, your GitHub inbox, and your contribution graph.
 A pull-out **activity feed** adds a live, cross-repo stream of your latest commits — each summarized
-by a **local LLM** — so you can see what your agents have shipped at a glance.
+by a **local LLM** — so you can see what your agents have shipped at a glance. A second pull-out, the
+**terminals panel**, lists every open terminal with live Claude session states: sessions **blocked on
+a permission prompt or your reply flash**, and clicking one jumps straight to that window.
 
 Everything is **read-only and local-first** — the app shells out to tools you already have (`git`,
 the [GitHub CLI](https://cli.github.com), Claude Code) and **never stores a single credential of its
@@ -39,6 +41,7 @@ rest keeps working.
   - [Command palette (⌘K)](#command-palette-k)
   - [Standup digest](#standup-digest)
   - [Activity feed](#activity-feed)
+  - [Terminals panel](#terminals-panel)
   - [GitHub inbox](#github-inbox)
   - [Claude Code Usage & cost](#claude-code-usage--cost)
   - [GitHub Contributions](#github-contributions)
@@ -75,6 +78,11 @@ rest keeps working.
 - Per-project **estimated cost** (today / this week / all-time) computed from local transcripts.
 - **Active session** detection ("working now"), session counts, and your **recent plan files**.
 - **Quota bars** (5-hour, weekly, weekly-Opus) with a reset countdown.
+- **Terminals panel** (pull-out) — every open Terminal.app / iTerm2 tab with **live Claude session
+  states** (working / your turn / **needs permission**, incl. what the tool wants to run). Blocked
+  sessions **flash**, a red **"waiting on you"** chip + dock badge + native notification route the
+  attention, and clicking an entry **jumps straight to that terminal**. Optional one-click
+  **Claude Code hooks** upgrade states from inferred to exact, updating instantly.
 
 **GitHub**
 - **Contribution graph** (incl. private contributions) with a current-streak readout.
@@ -166,6 +174,7 @@ toolbar button anytime for an in-app legend of every icon plus the cost math.
 | Button | Does |
 |---|---|
 | 〰️ **Activity** | Slide out the [activity feed](#activity-feed) — recent commits across every repo (highlighted while open). |
+| ⌨ **Terminals** | Slide out the [terminals panel](#terminals-panel) — every open terminal with live Claude session states and click-to-jump. **Pulses** while a session waits on you. |
 | 🔍 **Search** | Open the [command palette](#command-palette-k) (also **⌘K**). |
 | 📋 **Standup** | Open the [standup digest](#standup-digest). |
 | ℹ️ **Info** | Open the [info card](#info-card) — a legend for every symbol and the cost logic. |
@@ -178,6 +187,9 @@ toolbar button anytime for an in-app legend of every icon plus the cost math.
 
 A live, one-line summary directly under the toolbar. Each chip only appears when relevant:
 
+- **N waiting on you** — Claude Code sessions blocked on a permission prompt or your reply; open
+  the [terminals panel](#terminals-panel) and click one to jump there. Permission prompts always
+  count; finished turns only while recent, so a session left idle overnight doesn't nag.
 - **N need attention** — repos that are uncommitted, unpushed, unpulled, or have no upstream.
 - **N CI failing** — repos whose latest GitHub Actions run failed.
 - **N to review** — open PRs across your repos that request *your* review.
@@ -280,6 +292,36 @@ the latest 40 entries.
   <img src="docs/screenshot-activity-feed.png" alt="Activity feed panel showing cross-repo commit stream with AI summaries, repo tags, timestamps, and authors" width="300" />
 </p>
 
+### Terminals panel
+
+The ⌨ button slides out a second docked window listing **every open terminal** — each Terminal.app
+tab and iTerm2 session — with its title, repo, and what's running in it. It exists to answer one
+question at a glance: **which of my Claude sessions needs me right now?**
+
+- **Live Claude session badges.** Terminals running Claude Code show their state: **working**,
+  **your turn** (turn finished / waiting for input), or **needs permission** — including which tool
+  is asking and a short summary of what it wants (e.g. `Bash — npm test`). Entries that need you
+  **flash** (red for permission, amber for your-turn) and sort to the top, each with how long it
+  has been waiting.
+- **Click to jump.** Clicking an entry selects that exact window/tab/session (matched by its tty)
+  and brings the terminal app forward. Focus is the *only* action — nothing is ever typed or sent.
+- **Attention routing.** The red **"N waiting on you"** chip leads the [health bar](#health-bar),
+  the toolbar button pulses while the panel is closed, the dock icon carries a badge count, and a
+  native notification fires when a session starts waiting for permission — plus one nudge if it's
+  still waiting five minutes later.
+- **Inferred vs exact states.** Out of the box states are *inferred* from each session's transcript
+  and process activity (drawn as dashed badges — right nearly always, but a guess). Click
+  **"Enable exact states…"** in the panel's footer to install six Claude Code lifecycle hooks: the
+  consent box shows the exact JSON merged into `~/.claude/settings.json`, a timestamped backup is
+  kept beside it, and **Disable** removes exactly those entries. With hooks on, Claude Code itself
+  reports permission prompts and finished turns, and the panel updates **instantly** instead of on
+  the next poll. The hooks fire only on session lifecycle events — never per tool call — so Claude
+  is not slowed down.
+- **Elsewhere.** Claude sessions in terminals the app can't enumerate (tmux, IDE terminal panes)
+  still appear, labeled with their hosting app when derivable from the process tree.
+- macOS asks once per terminal app for **Automation** permission ("wants to control Terminal /
+  iTerm2") the first time the panel lists or focuses it; declining just hides that app's tabs.
+
 ### GitHub inbox
 
 Appears below the repositories when `gh` is signed in and you have items:
@@ -358,6 +400,8 @@ token. Here is exactly what is read and how:
 | **Claude cost & sessions & plans** | **Reading local files** in `~/.claude/projects/**/*.jsonl` and `~/.claude/plans/*.md` | None — local files only | **No** |
 | **Activity feed** | `git log` / `git show` per repo via `simple-git`, plus one-line commit **summaries from Apple's on-device foundation model** (bundled `commit-summarizer` helper) | None — on-device model | **No** |
 | **Dev servers** | `lsof` for listening TCP ports, mapped to repos by working directory | None | No |
+| **Terminals panel (tabs & titles)** | AppleScript enumeration of Terminal.app / iTerm2 (only when already running) joined with one `ps` pass + `lsof` working dirs | macOS **Automation** permission, prompted once per app | No |
+| **Claude session states** | Transcript tails in `~/.claude/projects/**` and, with the opt-in hooks, event files Claude Code writes to the app's own data folder | None — local files only | **No** |
 | **Today's calendar** | AppleScript query against Calendar.app | macOS Automation permission (prompted once) | No |
 | **CPU / RAM** | Node's `os` module | None | No |
 
@@ -372,6 +416,10 @@ Key guarantees:
 - **Errors are scrubbed.** Before any `git`/`gh`/usage error is shown in the UI or logs, `redactError`
   strips URL userinfo and GitHub/Anthropic token patterns, so a secret can't leak into a dialog or
   screenshot.
+- **Session-event files are transcript-class data.** With the optional hooks enabled, per-session
+  event files live `0700` under the app's data folder, are deleted shortly after each session ends,
+  are never included in settings export, and only short credential-scrubbed summaries of tool
+  inputs ever reach the UI.
 - **Best-effort, undocumented bits.** The Claude usage endpoint and the transcript folder layout are
   **undocumented Claude Code internals** that can change without notice; treat the quota bars and
   cost as best-effort. They degrade gracefully (the panel shows "unavailable") if anything changes
@@ -392,6 +440,7 @@ rate-limited sources are polled gently:
 | Claude quota bars | every 3 min (2-min cache + 429 backoff in the main process) |
 | Contribution graph | on day-rollover + ~every 10 min |
 | Activity feed | every 20s while open (and on re-show); summaries fill in as the on-device model finishes |
+| Terminals panel & session states | every 5s while the panel is open; every 15s for the chip/badge; **hook events push instantly** |
 
 `gh`-backed data is cached per repo (insights 5 min, inbox 2 min) to stay well under GitHub's rate
 limits. You can always force an immediate refresh with the ↻ button.
@@ -458,6 +507,8 @@ type-checked end to end.
 | `listDevServers` / `getScripts` / `runScript` | `lsof` mapping / package.json scripts / run (`devservers.ts`, `actions.ts`) |
 | `getStandup` | cross-repo commit digest (`standup.ts`) |
 | `getCommitFeed` / `toggleFeed` | activity-feed commits + on-device AI summaries / show-hide the docked feed window (`commitfeed.ts`, `applesummarizer.ts`, `index.ts`) |
+| `getTerminals` / `focusTerminal` / `toggleTerminals` | terminal enumeration + session states / tty-matched focus / show-hide the docked panel (`terminals.ts`, `agentsessions.ts`, `index.ts`) |
+| `getHooksStatus` / `installHooks` / `uninstallHooks` | the opt-in exact-states hooks (`hooks-setup.ts`) |
 | `getCalendar` / `getSystemStats` | Calendar via AppleScript / CPU+RAM (`calendar.ts`, `system.ts`) |
 | `scanForRepos` | scan a folder for `.git` repos (`discover.ts`) |
 | `getRepoMeta` / `setRepoMeta` / `exportSettings` / `importSettings` | persistence (`store.ts`) |
@@ -465,13 +516,22 @@ type-checked end to end.
 A pure function, `deriveState()` in `src/renderer/src/lib/status.ts`, turns a repo's raw status into
 its `{ color, badge, detail, canSync, needsAttention }` so the color/label rules live in one place.
 
-The **activity feed** runs in a *second* `BrowserWindow` — a frameless child docked to the main
-window's edge — that loads the same renderer bundle with a `#feed` hash and mounts only the feed
-(`FeedWindow.tsx`). It talks to the main process over the same `window.api`; `commitfeed.ts` reads
-the commits and summarizes each one in the background with **Apple's on-device foundation model**,
-spawning the bundled `commit-summarizer` helper (a small Swift binary linking the macOS 26
-FoundationModels framework) once per batch over a JSON-lines pipe. Results are cached on disk per
-commit hash, and the feed falls back to the raw message when the model is unavailable.
+The **activity feed** and the **terminals panel** each run in their own `BrowserWindow` — frameless
+children docked to the main window's edges (feed right, terminals left, chaining outward and
+swapping sides when the display runs out of room) — loading the same renderer bundle with a `#feed`
+/ `#terminals` hash that mounts only that surface. They talk to the main process over the same
+`window.api`; `commitfeed.ts` reads the commits and summarizes each one in the background with
+**Apple's on-device foundation model**, spawning the bundled `commit-summarizer` helper (a small
+Swift binary linking the macOS 26 FoundationModels framework) once per batch over a JSON-lines pipe.
+Results are cached on disk per commit hash, and the feed falls back to the raw message when the
+model is unavailable.
+
+**Session states** come from three independent, individually-degradable layers: AppleScript
+enumeration binds ttys to tabs; one `ps` pass identifies each tty's foreground process (and the
+Claude CLIs); and per-session state is either folded from hook-event files (`agentevents.ts`,
+exact, push-driven) or inferred from the transcript tail (`agentsessions.ts`, heuristic). A
+transcript write newer than a waiting event clears it back to *working* — so an answered permission
+prompt un-flashes immediately even though no hook fires for the answer itself.
 
 ---
 
@@ -492,6 +552,12 @@ Designed to be safe to open-source and run on any developer's machine:
   written, refreshed, or surfaced.
 - **Credential scrubbing.** `redactError` removes URL userinfo and GitHub/Anthropic token patterns
   from every error before it reaches the UI or logs.
+- **Hooks are opt-in, transparent, and reversible.** The exact-states integration is the only thing
+  the app ever writes outside its own data folder: six hook entries in `~/.claude/settings.json`,
+  added only after showing the exact JSON, with a timestamped backup and a surgical uninstall that
+  leaves any other hooks untouched. The recorder script never writes to stdout, so it cannot
+  influence a Claude Code permission decision; settings that fail to parse abort the operation
+  rather than being rewritten.
 
 ---
 
@@ -516,6 +582,11 @@ agentic-command-center/
 │   │   ├── claude.ts           # per-project cost/sessions from ~/.claude transcripts
 │   │   ├── usage.ts            # Claude quota via the OAuth usage endpoint
 │   │   ├── devservers.ts       # lsof dev-server detection + package.json scripts
+│   │   ├── procs.ts            # process table: foreground-per-tty, claude detection, lsof cwd
+│   │   ├── terminals.ts        # Terminal.app/iTerm2 enumeration + click-to-focus (AppleScript)
+│   │   ├── agentsessions.ts    # Claude session states: heuristic classifier + event merge
+│   │   ├── agentevents.ts      # hook-event watcher: exact states, instant push, cleanup
+│   │   ├── hooks-setup.ts      # opt-in installer for the exact-states Claude Code hooks
 │   │   ├── actions.ts          # open in editor/terminal/Finder/GitHub, run scripts
 │   │   ├── standup.ts          # cross-repo commit digest
 │   │   ├── commitfeed.ts       # activity feed: recent commits + on-device AI summaries
@@ -531,7 +602,8 @@ agentic-command-center/
 │       ├── components/         # HealthBar, RepoCard, RepoBox, InboxPanel, ClaudePanel,
 │       │                       #   CommandPalette, StandupDialog, DiscoverDialog, InfoDialog,
 │       │                       #   PromptDialog, CommitDialog, ContributionGraph, UsageWidget,
-│       │                       #   FeedWindow (docked activity feed), icons
+│       │                       #   FeedWindow (docked feed), TerminalsWindow (docked terminals
+│       │                       #   panel), icons
 │       └── lib/                # status.ts (deriveState), format.ts, notify.ts
 ├── out/                        # build output (gitignored)
 └── dist/                       # packaged .dmg (gitignored)
@@ -696,6 +768,42 @@ model is never asked twice.
 No. It opens as its own window docked beside the app, leaving the main window's size, position, and
 content untouched; it follows the app as you move it and floats with it when pinned.
 
+### Terminals panel
+
+**What do I need for the terminals panel?**
+Just a running Terminal.app or iTerm2 — macOS asks once per app for Automation permission the
+first time the panel lists it. Claude sessions inside tmux or IDE terminal panes still appear
+under **Elsewhere** (labeled with the hosting app when derivable); they just can't be focused
+per-tab.
+
+**What's the difference between inferred and exact session states?**
+*Inferred* (dashed badge): derived from the session's transcript tail and process activity — right
+nearly always, but a guess, and two sessions in the same project can blur together. *Exact*: with
+the opt-in hooks enabled, Claude Code itself reports permission prompts, finished turns, and
+session starts/ends per session id, and the panel updates instantly instead of on the next poll.
+
+**What exactly does "Enable exact states" change on my machine?**
+Two things: a small recorder script is written under the app's data folder, and six hook entries
+pointing at it are merged into `~/.claude/settings.json` — the consent box shows the exact JSON
+first, and a timestamped backup of the previous file is kept beside it. The hooks fire only on
+session lifecycle events (never per tool call), so Claude is not slowed down. **Disable** removes
+exactly those entries and the script, leaving any other hooks you have untouched.
+
+**Where do hook events go, and what's in them?**
+One small JSON-lines file per session under the app's data folder (`agent-events/`, permissions
+`0700`) — the same sensitivity class as the transcripts Claude Code already keeps. Files are
+deleted shortly after their session ends, never leave your machine, are excluded from settings
+export, and only short credential-scrubbed summaries of tool inputs ever reach the UI.
+
+**Does clicking an entry type anything into my terminal?**
+No. Focusing is the only action — the click selects that window/tab/session and brings the app
+forward. The panel never sends keystrokes, never answers prompts, and never writes to a terminal.
+
+**Why did a "needs permission" badge clear on its own?**
+You answered it (or the tool ran). No hook fires for the answer itself, but the session's
+transcript advances the moment Claude continues — the app watches for that write and flips the
+state back to *working* immediately.
+
 ### Privacy, storage & platform
 
 **Does the app store my GitHub or Claude credentials?**
@@ -728,6 +836,8 @@ Yes by default — click the 📌 pin button in the toolbar to toggle it.
 | **No Claude cost numbers** | You have no transcripts yet under `~/.claude/projects`, or none of your imported repos match a project folder. Use Claude Code in those repos and they'll appear. |
 | **Push fails with an auth error** | The app uses your normal git auth — configure an HTTPS credential helper or an SSH key and try the push from a terminal once. |
 | **Calendar event never shows** | Grant Automation access when macOS prompts (System Settings → Privacy & Security → Automation), or ignore — it's optional. |
+| **Terminals panel shows a "grant access" notice** | You declined Automation for that terminal app — System Settings → Privacy & Security → Automation → Agentic Command Center, enable Terminal / iTerm2. |
+| **Session states look wrong / two sessions show the same task** | That's the inferred mode's known blur for two sessions in one project — enable **exact states** in the panel footer. |
 | **"Open in editor" does nothing** | Install one of Cursor, VS Code, Zed, or Sublime Text. |
 
 ---
