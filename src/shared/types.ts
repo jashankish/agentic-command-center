@@ -218,7 +218,7 @@ export interface CommitFeedEntry {
   hash: string
   /** Original commit subject line. */
   message: string
-  /** AI-generated summary (or raw message when AI is unavailable / cached). */
+  /** On-device AI summary (or the raw message while none is available). */
   summary: string
   author: string
   /** ISO 8601 timestamp. */
@@ -231,8 +231,10 @@ export interface CommitFeedEntry {
 
 export interface CommitFeed {
   entries: CommitFeedEntry[]
-  /** True when an ollama model was detected. */
+  /** True when on-device summarization (Apple Intelligence) is ready. */
   aiAvailable: boolean
-  /** Name of the ollama model being used, or null. */
+  /** Display name of the summarization backend, or null when unavailable. */
   aiModel: string | null
+  /** When unavailable: short human-readable reason / how to enable. */
+  aiHint?: string
 }

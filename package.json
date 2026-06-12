@@ -7,10 +7,11 @@
   "author": "jashan",
   "license": "MIT",
   "scripts": {
-    "dev": "electron-vite dev",
+    "dev": "npm run build:helper && electron-vite dev",
     "build": "electron-vite build",
+    "build:helper": "bash scripts/build-helper.sh",
     "preview": "electron-vite preview",
-    "dist": "electron-vite build && electron-builder --mac"
+    "dist": "npm run build:helper && electron-vite build && electron-builder --mac"
   },
   "dependencies": {
     "electron-store": "^8.2.0",
@@ -36,6 +37,12 @@
     "files": [
       "out/**/*",
       "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/bin",
+        "to": "bin"
+      }
     ],
     "mac": {
       "target": "dmg",

@@ -1,6 +1,7 @@
 node_modules/
 out/
 dist/
+resources/bin/
 *.log
 *.log.*
 logs/

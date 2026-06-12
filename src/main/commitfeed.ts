@@ -1,106 +1,98 @@
-import { spawn } from 'child_process'
 import { simpleGit } from 'simple-git'
 import { basename } from 'path'
+import Store from 'electron-store'
 import type { CommitFeed, CommitFeedEntry } from '../shared/types'
 import { webUrlFromRemote } from './git'
+import { checkAvailability, summarizeBatch } from './applesummarizer'
 
 const SEP = String.fromCharCode(0x1f)
 
-// In-memory session cache: hash → AI summary
-const summaryCache = new Map<string, string>()
+const MAX_PER_CYCLE = 15
+const MAX_PERSISTED = 1000
+const MAX_CONTEXT_CHARS = 2500
+const MAX_MESSAGE_CHARS = 1200
+const MAX_STAT_LINES = 15
 
-// Cached model detection: undefined = not yet checked, null = unavailable
-let detectedModel: string | null | undefined = undefined
+interface CacheEntry {
+  text: string
+  /** Genuine model output (persisted) vs raw-message fallback (session only). */
+  fromModel: boolean
+}
+
+// hash → summary. Hydrated from disk so a restart doesn't re-summarize.
+const summaryCache = new Map<string, CacheEntry>()
+
+const cacheStore = new Store<{ summaries: [string, string][] }>({
+  name: 'summary-cache',
+  defaults: { summaries: [] }
+})
+for (const [hash, text] of cacheStore.get('summaries')) {
+  summaryCache.set(hash, { text, fromModel: true })
+}
+
 let summarizationRunning = false
 
-function spawnOllama(args: string[]): Promise<{ stdout: string; ok: boolean }> {
-  return new Promise((resolve) => {
-    const child = spawn('ollama', args, { stdio: ['ignore', 'pipe', 'ignore'] })
-    let out = ''
-    child.stdout.on('data', (d: Buffer) => {
-      out += d.toString()
-    })
-    child.on('close', (code) => resolve({ stdout: out, ok: code === 0 }))
-    child.on('error', () => resolve({ stdout: '', ok: false }))
-    setTimeout(() => {
-      child.kill()
-      resolve({ stdout: out, ok: false })
-    }, 4000)
-  })
-}
-
-async function detectOllamaModel(): Promise<string | null> {
-  const { stdout, ok } = await spawnOllama(['list'])
-  if (!ok) return null
-
-  const lines = stdout.split('\n').slice(1).filter(Boolean)
-  if (lines.length === 0) return null
-
-  // Prefer smaller/faster models for summarization
-  const preferred = [
-    'qwen2.5:3b',
-    'qwen2.5:1.5b',
-    'llama3.2:3b',
-    'llama3.2:1b',
-    'phi3:mini',
-    'phi3',
-    'llama3.2',
-    'gemma2:2b',
-    'mistral:7b',
-    'mistral'
-  ]
-  for (const pref of preferred) {
-    if (lines.some((l) => l.toLowerCase().startsWith(pref.toLowerCase()))) return pref
+function persistCache(): void {
+  const persisted: [string, string][] = []
+  for (const [hash, entry] of summaryCache) {
+    if (entry.fromModel) persisted.push([hash, entry.text])
   }
-  const first = lines[0].trim().split(/\s+/)[0]
-  return first || null
+  cacheStore.set('summaries', persisted.slice(-MAX_PERSISTED))
 }
 
-async function getModel(): Promise<string | null> {
-  if (detectedModel === undefined) {
-    detectedModel = await detectOllamaModel()
+// Reject runaway or refused model output instead of caching it forever.
+function plausible(s: string): boolean {
+  return s.length > 0 && s.length <= 90 && s.split(/\s+/).length <= 14
+}
+
+/** Full message plus per-file change stats — more signal than the subject line. */
+async function commitContext(e: CommitFeedEntry): Promise<string> {
+  try {
+    const git = simpleGit(e.repoPath)
+    const [message, numstat] = await Promise.all([
+      git.raw(['show', e.hash, '--no-patch', '--format=%B']),
+      git.raw(['show', e.hash, '--numstat', '--format='])
+    ])
+    const body = message.trim().slice(0, MAX_MESSAGE_CHARS)
+    const stats = numstat
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+      .slice(0, MAX_STAT_LINES)
+      .map((l) => l.trim())
+      .join('\n')
+    const text = stats ? `${body}\n\nFiles changed (added\tremoved\tpath):\n${stats}` : body
+    return text.slice(0, MAX_CONTEXT_CHARS)
+  } catch {
+    return e.message
   }
-  return detectedModel
 }
 
-function summarizeWithOllama(model: string, message: string): Promise<string> {
-  return new Promise((resolve) => {
-    const prompt =
-      `Summarize this git commit for a developer activity feed in one clear, ` +
-      `specific sentence. Output only the sentence.\n\nCommit: "${message}"\n\nSummary:`
+async function runSummarization(entries: CommitFeedEntry[]): Promise<void> {
+  const pending = entries.filter((e) => !summaryCache.has(e.hash)).slice(0, MAX_PER_CYCLE)
+  if (pending.length === 0) return
 
-    const child = spawn('ollama', ['run', model], { stdio: ['pipe', 'pipe', 'ignore'] })
-    let output = ''
-    let settled = false
+  const byHash = new Map(pending.map((e) => [e.hash, e]))
+  const items = await Promise.all(
+    pending.map(async (e) => ({ id: e.hash, text: await commitContext(e) }))
+  )
 
-    const finish = (result: string): void => {
-      if (settled) return
-      settled = true
-      resolve(result.trim() || message)
+  let gotSummaries = false
+  await summarizeBatch(items, (id, summary, errorCode) => {
+    const entry = byHash.get(id)
+    if (!entry) return
+    if (summary && plausible(summary)) {
+      summaryCache.set(id, { text: summary, fromModel: true })
+      entry.summary = summary
+      gotSummaries = true
+    } else if (errorCode !== 'unavailable') {
+      // Genuine per-item failure (guardrail, context, junk output): show the raw
+      // message for this session but retry after a restart. 'unavailable' stays
+      // uncached so it retries as soon as the model is ready.
+      summaryCache.set(id, { text: entry.message, fromModel: false })
     }
-
-    child.stdout.on('data', (d: Buffer) => {
-      output += d.toString()
-    })
-    child.stdin.write(prompt)
-    child.stdin.end()
-    child.on('close', () => finish(output))
-    child.on('error', () => finish(message))
-    setTimeout(() => {
-      child.kill()
-      finish(output || message)
-    }, 10000)
   })
-}
-
-async function runSummarization(entries: CommitFeedEntry[], model: string): Promise<void> {
-  const uncached = entries.filter((e) => !summaryCache.has(e.hash))
-  // Process sequentially to avoid hammering the local LLM
-  for (const e of uncached.slice(0, 15)) {
-    const summary = await summarizeWithOllama(model, e.message)
-    summaryCache.set(e.hash, summary)
-    e.summary = summary
-  }
+  if (gotSummaries) persistCache()
 }
 
 function relativeTime(dateStr: string): string {
@@ -141,7 +133,7 @@ async function repoEntries(repoPath: string): Promise<CommitFeedEntry[]> {
       .filter(Boolean)
       .map((line) => {
         const [hash, message, author, date] = line.split(SEP)
-        const cached = summaryCache.get(hash ?? '')
+        const cached = summaryCache.get(hash ?? '')?.text
         return {
           repoPath,
           repoName: basename(repoPath),
@@ -161,19 +153,27 @@ async function repoEntries(repoPath: string): Promise<CommitFeedEntry[]> {
 }
 
 export async function getCommitFeed(repoPaths: string[]): Promise<CommitFeed> {
-  const model = await getModel()
+  const [availability, perRepo] = await Promise.all([
+    checkAvailability(),
+    Promise.all(repoPaths.map(repoEntries))
+  ])
 
-  const allEntries = (await Promise.all(repoPaths.map(repoEntries))).flat()
+  const allEntries = perRepo.flat()
   allEntries.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
   const entries = allEntries.slice(0, 40)
 
   // Kick off background summarization without blocking the response
-  if (model && !summarizationRunning) {
+  if (availability.available && !summarizationRunning) {
     summarizationRunning = true
-    runSummarization(entries, model).finally(() => {
+    runSummarization(entries).finally(() => {
       summarizationRunning = false
     })
   }
 
-  return { entries, aiAvailable: model !== null, aiModel: model }
+  return {
+    entries,
+    aiAvailable: availability.available,
+    aiModel: availability.available ? 'Apple Intelligence' : null,
+    aiHint: availability.hint
+  }
 }

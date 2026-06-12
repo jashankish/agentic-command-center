@@ -68,8 +68,8 @@ rest keeps working.
 - **Favorite** (★) and **group** repos; the dashboard organizes into labeled sections.
 - **Compact view** — the classic colored-tile grid — toggleable from the toolbar.
 - **Activity feed** (pull-out) — a live, RSS-/social-style stream of recent commits across **every**
-  repo, each summarized by a **local LLM** ([ollama](https://ollama.com)); falls back to raw commit
-  messages when ollama isn't running.
+  repo, each summarized **on-device by Apple Intelligence** (macOS 26+); falls back to raw commit
+  messages when the model isn't available.
 
 **Agentic / Claude Code**
 - Per-project **estimated cost** (today / this week / all-time) computed from local transcripts.
@@ -97,13 +97,13 @@ rest keeps working.
 | **Repo status / commit / push / fetch** | `git` on your `PATH`, plus your usual push auth (HTTPS credential helper or SSH key). |
 | **CI, PRs, issues, inbox, contribution graph** | [`gh`](https://cli.github.com) installed and signed in (`brew install gh && gh auth login`). |
 | **Claude usage bars + cost panel** | [Claude Code](https://claude.com/claude-code) installed and signed in on this machine. |
-| **Activity-feed AI summaries** | [ollama](https://ollama.com) running locally with any model pulled — *optional*; without it the feed shows raw commit messages. |
+| **Activity-feed AI summaries** | An Apple Silicon Mac on macOS 26+ with **Apple Intelligence** enabled — *optional*; without it the feed shows raw commit messages. |
 | **Today's calendar event** | macOS Calendar with at least one account (grants an Automation prompt once). |
-| **Building from source** | Node.js ≥ 18 with npm. |
+| **Building from source** | Node.js ≥ 18 with npm (plus Xcode 26+ or its Command Line Tools to compile the on-device summarizer helper — optional). |
 
 Everything is **optional and independent** — missing `gh`, Claude Code, or Calendar only disables
-that specific panel, and without **ollama** the activity feed simply shows raw commit messages
-instead of AI summaries.
+that specific panel, and without **Apple Intelligence** the activity feed simply shows raw commit
+messages instead of AI summaries.
 
 ---
 
@@ -127,7 +127,8 @@ instead of AI summaries.
    > whose app bundle had no valid signature — grab v1.2.1+ (or run the `xattr` command above,
    > which clears it too).
 4. Launch it, click **+** to import repos, and (optionally) run `gh auth login` for the GitHub
-   panels and install [ollama](https://ollama.com) for AI-summarized activity-feed entries.
+   panels and enable **Apple Intelligence** (System Settings) for AI-summarized activity-feed
+   entries.
 
 ### Option B — Build it yourself
 
@@ -146,6 +147,11 @@ A self-built `.dmg` is ad-hoc signed too (an `afterPack` hook runs `codesign -s 
 quarantines files downloaded from a browser — a locally built app launches without the Gatekeeper
 step. The [`build.sh`](#building--releasing) helper wraps `npm run dist` and can commit/push/release
 in one command.
+
+Both `npm run dev` and `npm run dist` first compile the small Swift helper behind the activity
+feed's on-device summaries (`native/summarizer.swift` → `resources/bin/commit-summarizer`), which
+needs **Xcode 26+** (or its Command Line Tools) for the macOS 26 SDK. Without it the build prints a
+warning, skips the helper, and everything else works — the feed just shows raw commit messages.
 
 ---
 
@@ -251,13 +257,15 @@ you can see what your agents have been building at a glance.
 - **Each entry** shows the **repo**, a **relative timestamp**, the commit **summary**, the **author**,
   and a short **hash** that links straight to the commit on GitHub. When a summary differs from the
   raw commit subject, the original is shown underneath in monospace.
-- **Local-LLM summaries.** When [ollama](https://ollama.com) is running, each commit message is
-  rewritten into one clear, specific sentence — ideal when agent-authored commits are terse or
-  auto-generated. The header shows an **AI** badge with the model name; with no ollama it shows a
-  **raw** badge and the original subjects. The app prefers a small, fast local model (e.g.
-  `llama3.2:3b`, `qwen2.5:3b`, `phi3:mini`). Summaries are generated **in the background** (commits
-  appear instantly, then upgrade as the model finishes), **cached per commit hash** so the model is
-  never asked twice, and **never leave your machine**.
+- **On-device AI summaries.** On an Apple Silicon Mac running macOS 26+ with **Apple Intelligence**
+  enabled, each commit is condensed into an exceptionally brief one-liner (at most ~8 words) by
+  Apple's on-device foundation model — ideal when agent-authored commits are terse or
+  auto-generated. The model sees the full commit message plus per-file change stats, not just the
+  subject line. The header shows an **AI** badge; otherwise a **raw** badge (hover it for the
+  reason — e.g. Apple Intelligence disabled, or the model still downloading) and the original
+  subjects. Summaries are generated **in the background** (commits appear instantly, then upgrade
+  as the model finishes), **cached on disk per commit hash** so the model is never asked twice —
+  even across restarts — and **never leave your machine**.
 - **Its own window.** The feed renders in a separate, frameless window docked just off the main
   window's edge — it **extends beyond** the app without resizing it or covering any content, carries
   the same native rounded corners, **follows** the window as you move or resize it, and **floats with
@@ -348,7 +356,7 @@ token. Here is exactly what is read and how:
 | **CI / PRs / issues / inbox** | `gh run list`, `gh pr list`, `gh issue list`, `gh search prs`, `gh api notifications` | `gh`'s own stored token | Yes, by `gh` |
 | **Claude quota bars** | HTTPS GET to Claude's OAuth **usage** endpoint (`api.anthropic.com/api/oauth/usage`) | Claude Code's OAuth token, **read** from the macOS Keychain (`Claude Code-credentials`) or `~/.claude/.credentials.json` | Yes, one request |
 | **Claude cost & sessions & plans** | **Reading local files** in `~/.claude/projects/**/*.jsonl` and `~/.claude/plans/*.md` | None — local files only | **No** |
-| **Activity feed** | `git log` per repo via `simple-git`, plus one-line commit **summaries from a local [ollama](https://ollama.com) model** (`ollama run`) | None — local model | **No** |
+| **Activity feed** | `git log` / `git show` per repo via `simple-git`, plus one-line commit **summaries from Apple's on-device foundation model** (bundled `commit-summarizer` helper) | None — on-device model | **No** |
 | **Dev servers** | `lsof` for listening TCP ports, mapped to repos by working directory | None | No |
 | **Today's calendar** | AppleScript query against Calendar.app | macOS Automation permission (prompted once) | No |
 | **CPU / RAM** | Node's `os` module | None | No |
@@ -383,7 +391,7 @@ rate-limited sources are polled gently:
 | CI/PR/issue insights, calendar | every 5 min |
 | Claude quota bars | every 3 min (2-min cache + 429 backoff in the main process) |
 | Contribution graph | on day-rollover + ~every 10 min |
-| Activity feed | every 20s while open (and on re-show); summaries fill in as ollama finishes |
+| Activity feed | every 20s while open (and on re-show); summaries fill in as the on-device model finishes |
 
 `gh`-backed data is cached per repo (insights 5 min, inbox 2 min) to stay well under GitHub's rate
 limits. You can always force an immediate refresh with the ↻ button.
@@ -449,7 +457,7 @@ type-checked end to end.
 | `getInbox` | notifications + your PRs via `gh` (`inbox.ts`) |
 | `listDevServers` / `getScripts` / `runScript` | `lsof` mapping / package.json scripts / run (`devservers.ts`, `actions.ts`) |
 | `getStandup` | cross-repo commit digest (`standup.ts`) |
-| `getCommitFeed` / `toggleFeed` | activity-feed commits + local-LLM summaries / show-hide the docked feed window (`commitfeed.ts`, `index.ts`) |
+| `getCommitFeed` / `toggleFeed` | activity-feed commits + on-device AI summaries / show-hide the docked feed window (`commitfeed.ts`, `applesummarizer.ts`, `index.ts`) |
 | `getCalendar` / `getSystemStats` | Calendar via AppleScript / CPU+RAM (`calendar.ts`, `system.ts`) |
 | `scanForRepos` | scan a folder for `.git` repos (`discover.ts`) |
 | `getRepoMeta` / `setRepoMeta` / `exportSettings` / `importSettings` | persistence (`store.ts`) |
@@ -460,8 +468,10 @@ its `{ color, badge, detail, canSync, needsAttention }` so the color/label rules
 The **activity feed** runs in a *second* `BrowserWindow` — a frameless child docked to the main
 window's edge — that loads the same renderer bundle with a `#feed` hash and mounts only the feed
 (`FeedWindow.tsx`). It talks to the main process over the same `window.api`; `commitfeed.ts` reads
-the commits and summarizes each one with a local [ollama](https://ollama.com) model in the background
-(cached per commit hash), falling back to the raw message when no model is available.
+the commits and summarizes each one in the background with **Apple's on-device foundation model**,
+spawning the bundled `commit-summarizer` helper (a small Swift binary linking the macOS 26
+FoundationModels framework) once per batch over a JSON-lines pipe. Results are cached on disk per
+commit hash, and the feed falls back to the raw message when the model is unavailable.
 
 ---
 
@@ -491,6 +501,7 @@ Designed to be safe to open-source and run on any developer's machine:
 agentic-command-center/
 ├── build.sh                    # build the .dmg + commit/push + (--release) publish
 ├── electron.vite.config.ts     # electron-vite build config (main / preload / renderer)
+├── native/summarizer.swift     # Swift helper: commit summaries via Apple's on-device model
 ├── package.json                # scripts, deps, electron-builder config
 ├── src/
 │   ├── shared/types.ts         # all shared IPC types
@@ -507,7 +518,8 @@ agentic-command-center/
 │   │   ├── devservers.ts       # lsof dev-server detection + package.json scripts
 │   │   ├── actions.ts          # open in editor/terminal/Finder/GitHub, run scripts
 │   │   ├── standup.ts          # cross-repo commit digest
-│   │   ├── commitfeed.ts       # activity feed: recent commits + local-LLM (ollama) summaries
+│   │   ├── commitfeed.ts       # activity feed: recent commits + on-device AI summaries
+│   │   ├── applesummarizer.ts  # spawns the bundled FoundationModels helper (availability + batches)
 │   │   ├── discover.ts         # scan a folder for git repos
 │   │   ├── system.ts           # CPU/memory snapshot
 │   │   ├── calendar.ts         # today's macOS Calendar events (AppleScript)
@@ -659,15 +671,16 @@ The first of **Cursor → VS Code → Zed → Sublime Text** that's installed.
 
 ### Activity feed
 
-**Do I need ollama for the activity feed?**
-No. Without it the feed still works — it just shows the raw commit subjects (with a **raw** badge).
-Install [ollama](https://ollama.com) and pull any model (e.g. `ollama pull llama3.2:3b`) and the feed
-rewrites each commit into a clear one-line summary, with an **AI** badge naming the model.
+**What do I need for AI summaries in the activity feed?**
+An Apple Silicon Mac on macOS 26+ with **Apple Intelligence** enabled (System Settings → Apple
+Intelligence & Siri). Without that the feed still works — it just shows the raw commit subjects
+(with a **raw** badge; hover it for the exact reason). With it, each commit is condensed on-device
+into a one-line summary of at most ~8 words, with an **AI** badge.
 
 **Does the feed send my commits or code anywhere?**
-No. Commits are read locally with `git`, and summaries are produced by a model running **on your
-machine** via ollama. The feed makes no network request of its own — no commit data leaves your
-computer.
+No. Commits are read locally with `git`, and summaries are produced by Apple's foundation model
+running **entirely on your machine** (the same on-device model behind Apple Intelligence). The feed
+makes no network request of its own — no commit data leaves your computer.
 
 **Which commits show up, and how many?**
 The 5 most-recent non-merge commits from each imported repo (across all branches), merged and sorted
@@ -675,8 +688,9 @@ newest-first, capped at 40 entries. Repos with a GitHub remote get clickable com
 
 **Why do summaries appear a moment after the commits?**
 They're generated in the background so the feed never blocks on the model: entries appear instantly
-with their raw messages and upgrade to AI summaries as ollama finishes. Each result is cached by
-commit hash, so reopening the feed is instant and the model is never asked twice.
+with their raw messages and upgrade to AI summaries as the on-device model finishes. Each result is
+cached on disk by commit hash, so reopening the feed — or relaunching the app — is instant and the
+model is never asked twice.
 
 **Does opening the feed resize or cover the main window?**
 No. It opens as its own window docked beside the app, leaving the main window's size, position, and
