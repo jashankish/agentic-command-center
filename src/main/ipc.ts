@@ -13,6 +13,7 @@ import { getStandup } from './standup'
 import { getSystemStats } from './system'
 import { getCalendar } from './calendar'
 import { getCommitFeed } from './commitfeed'
+import { getTerminals, focusTerminal } from './terminals'
 import {
   listRepos,
   addRepo,
@@ -24,7 +25,7 @@ import {
   exportSettings,
   importSettings
 } from './store'
-import type { ViewMode, RepoMeta } from '../shared/types'
+import type { ViewMode, RepoMeta, FocusTarget } from '../shared/types'
 
 export function registerIpc(): void {
   ipcMain.handle('repos:list', () => listRepos())
@@ -55,6 +56,8 @@ export function registerIpc(): void {
   ipcMain.handle('system:get', () => getSystemStats())
   ipcMain.handle('calendar:get', () => getCalendar())
   ipcMain.handle('feed:get', (_e, paths: string[]) => getCommitFeed(paths))
+  ipcMain.handle('terminals:list', (_e, paths: string[]) => getTerminals(paths))
+  ipcMain.handle('terminals:focus', (_e, target: FocusTarget) => focusTerminal(target))
 
   ipcMain.handle('view:get', () => getViewMode())
   ipcMain.handle('view:set', (_e, mode: ViewMode) => setViewMode(mode))

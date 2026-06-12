@@ -86,7 +86,7 @@ function tokensOf(u: Usage): number {
 }
 
 /** Claude Code encodes a project dir as its cwd with `/` and `.` turned to `-`. */
-function encodedNames(repoPath: string): string[] {
+export function encodedNames(repoPath: string): string[] {
   return [repoPath.replace(/\//g, '-'), repoPath.replace(/[/.]/g, '-')]
 }
 

@@ -14,7 +14,9 @@ import type {
   Standup,
   SystemStats,
   CalendarData,
-  CommitFeed
+  CommitFeed,
+  TerminalsSnapshot,
+  FocusTarget
 } from '../shared/types'
 
 const api = {
@@ -62,14 +64,29 @@ const api = {
   getCalendar: (): Promise<CalendarData> => ipcRenderer.invoke('calendar:get'),
   getCommitFeed: (paths: string[]): Promise<CommitFeed> => ipcRenderer.invoke('feed:get', paths),
 
+  // Every open terminal tab/session plus live Claude session states.
+  getTerminals: (paths: string[]): Promise<TerminalsSnapshot> =>
+    ipcRenderer.invoke('terminals:list', paths),
+  // Bring the terminal tab owning a tty to the front.
+  focusTerminal: (target: FocusTarget): Promise<CommitPushResult> =>
+    ipcRenderer.invoke('terminals:focus', target),
+
   // Show / hide the docked activity-feed window; resolves to the new open state.
   toggleFeed: (): Promise<boolean> => ipcRenderer.invoke('feed:toggle'),
+  // Show / hide the docked terminals panel; resolves to the new open state.
+  toggleTerminals: (): Promise<boolean> => ipcRenderer.invoke('terminals:toggle'),
   // Fires when the feed window is closed/destroyed externally (e.g. ⌘W) so the
   // main window can clear its toolbar toggle. Returns an unsubscribe function.
   onFeedClosed: (cb: () => void): (() => void) => {
     const handler = (): void => cb()
     ipcRenderer.on('feed:closed', handler)
     return () => ipcRenderer.removeListener('feed:closed', handler)
+  },
+  // Same, for the docked terminals panel.
+  onTerminalsClosed: (cb: () => void): (() => void) => {
+    const handler = (): void => cb()
+    ipcRenderer.on('terminals:closed', handler)
+    return () => ipcRenderer.removeListener('terminals:closed', handler)
   }
 }
 

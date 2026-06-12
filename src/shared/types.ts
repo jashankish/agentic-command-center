@@ -238,3 +238,78 @@ export interface CommitFeed {
   /** When unavailable: short human-readable reason / how to enable. */
   aiHint?: string
 }
+
+/** Lifecycle state of a Claude Code session, as shown in the terminals panel. */
+export type AgentState = 'working' | 'permission' | 'input' | 'ended' | 'unknown'
+
+/** A live Claude Code session, bound to a terminal when its tty is known. */
+export interface AgentSessionState {
+  /** Transcript/session UUID the state was derived from, or null. */
+  sessionId: string | null
+  state: AgentState
+  /** 'event' = hook-fed (exact); 'heuristic' = inferred from transcripts. */
+  confidence: 'event' | 'heuristic'
+  /** ISO timestamp the current state began (best-effort), or null. */
+  since: string | null
+  /** What the session is waiting on, when known. */
+  detail?: { tool?: string }
+  /** Model id seen most recently in the transcript. */
+  model?: string
+  /** Claude Code permission mode (default / acceptEdits / plan / …). */
+  permissionMode?: string
+  /** Claude Code's own title for the session, when it saved one. */
+  title?: string
+  /** First line of the last submitted prompt. */
+  lastPrompt?: string
+  pid: number
+  /** Normalized tty name (e.g. "ttys004"), or null when none. */
+  tty: string | null
+  cwd: string | null
+  /** Imported repo the session's cwd belongs to, or null. */
+  repoPath: string | null
+}
+
+/** One enumerable terminal surface (a Terminal.app tab / an iTerm2 session). */
+export interface TerminalEntry {
+  app: 'Terminal' | 'iTerm2'
+  /** AppleScript window id — stable per window. */
+  windowId: number
+  /** 1-based tab position at enumeration time. */
+  tabIndex: number
+  /** Normalized tty (e.g. "ttys004"), or null when the tab exposes none. */
+  tty: string | null
+  /** Tab/session title, possibly empty. */
+  title: string
+  /** Humanized foreground command (e.g. "zsh", "npm run dev"), or null. */
+  command: string | null
+  cwd: string | null
+  /** Imported repo the tab's cwd belongs to, or null. */
+  repoPath: string | null
+  /** True while the tab runs a foreground process. */
+  busy: boolean
+  /** Claude session bound to this tty, when one exists. */
+  agent: AgentSessionState | null
+}
+
+/** Per-app AppleScript (Automation) consent state. */
+export type AutomationState = 'ok' | 'denied' | 'not-running'
+
+/** A Claude session running somewhere we can't enumerate (tmux, IDE pane, …). */
+export type UnboundSession = AgentSessionState & {
+  /** Hosting app guessed from the process tree, when derivable. */
+  host?: string
+}
+
+export interface TerminalsSnapshot {
+  entries: TerminalEntry[]
+  unbound: UnboundSession[]
+  automation: { terminal: AutomationState; iterm: AutomationState }
+  error?: string
+}
+
+/** Click-to-focus target; the tty is the stable cross-app join key. */
+export interface FocusTarget {
+  app: 'Terminal' | 'iTerm2'
+  /** Normalized tty name, e.g. "ttys004". */
+  tty: string
+}
