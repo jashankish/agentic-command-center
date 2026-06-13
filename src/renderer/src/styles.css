@@ -1515,10 +1515,11 @@ body {
 
 .legend-icon {
   flex-shrink: 0;
-  width: 24px;
+  min-width: 24px;
   height: 22px;
-  display: grid;
-  place-items: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: var(--text);
 }
 
