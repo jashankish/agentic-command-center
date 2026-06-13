@@ -11,8 +11,7 @@
     "build": "electron-vite build",
     "build:helper": "bash scripts/build-helper.sh",
     "preview": "electron-vite preview",
-    "dist": "npm run build:helper && electron-vite build && electron-builder --mac",
-    "screenshots": "node scripts/screenshots/capture.mjs"
+    "dist": "npm run build:helper && electron-vite build && electron-builder --mac"
   },
   "dependencies": {
     "electron-store": "^8.2.0",
@@ -26,7 +25,6 @@
     "electron": "^31.3.0",
     "electron-builder": "^24.13.3",
     "electron-vite": "^2.3.0",
-    "playwright-core": "^1.60.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "typescript": "^5.5.4",
