@@ -2,7 +2,7 @@ import { open, readdir, stat } from 'fs/promises'
 import { homedir } from 'os'
 import { join } from 'path'
 import type { AgentSessionState, AgentState } from '../shared/types'
-import { getEventSessions } from './agentevents'
+import { automationKind, getEventSessions } from './agentevents'
 import { encodedNames } from './claude'
 import { cwdOfPid, hasActiveDescendant, isClaudeCli, type PsRow } from './procs'
 
@@ -191,6 +191,15 @@ function classify(
   }
 }
 
+/**
+ * Sticky loop/cron tags, keyed by transcript session id. A /loop re-injects its
+ * prompt only every interval, so between iterations the defining "/loop …"
+ * last-prompt scrolls past the transcript tail we scan — without this, a loop
+ * would flicker in and out of the panel. Once any poll recognizes a session as
+ * an automation, it stays tagged for the life of the process.
+ */
+const automationBySession = new Map<string, 'loop' | 'cron'>()
+
 async function sessionOf(
   proc: PsRow,
   rows: PsRow[],
@@ -217,6 +226,11 @@ async function sessionOf(
     if (!newest) continue
     const tail = await readTail(newest.file)
     const cls = classify(tail, newest.mtimeMs, proc, rows)
+    // Loops are long-lived and usually predate any hook install, so the
+    // hook-fed marker misses them. Re-derive the tag from the transcript's
+    // last-prompt here (no hooks needed) and remember it stickily per session.
+    const seen = tail.lastPrompt ? automationKind(tail.lastPrompt) : null
+    if (seen) automationBySession.set(newest.sessionId, seen)
     return {
       ...base,
       sessionId: newest.sessionId,
@@ -226,7 +240,8 @@ async function sessionOf(
       model: tail.model,
       permissionMode: tail.permissionMode,
       title: tail.title,
-      lastPrompt: tail.lastPrompt
+      lastPrompt: tail.lastPrompt,
+      automation: automationBySession.get(newest.sessionId)
     }
   }
   return base

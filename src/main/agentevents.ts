@@ -173,7 +173,7 @@ function firstLine(s: string, max: number): string {
  *   - `<<autonomous-loop>>`         a cron-scheduled autonomous run
  * Returns null for ordinary, human-typed prompts.
  */
-function automationKind(prompt: string): 'loop' | 'cron' | null {
+export function automationKind(prompt: string): 'loop' | 'cron' | null {
   const p = prompt.trim()
   if (p.includes('<<autonomous-loop-dynamic>>')) return 'loop'
   if (p.includes('<<autonomous-loop>>')) return 'cron'
