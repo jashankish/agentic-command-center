@@ -140,6 +140,9 @@ interface EventSession {
   permissionMode?: string
   lastPrompt?: string
   detail?: { tool?: string; summary?: string }
+  /** Marks a session driven by a /loop run or a scheduled (cron) prompt, once
+   *  a matching prompt has been seen. Sticky for the session's lifetime. */
+  automation?: 'loop' | 'cron'
   /** Epoch ms of the event that set a waiting state (clearing-rule anchor). */
   waitingSinceMs?: number
   endedAtMs?: number
@@ -159,6 +162,23 @@ const transcriptWatchers = new Map<string, FSWatcher>()
 function firstLine(s: string, max: number): string {
   const line = s.split('\n', 1)[0].trim()
   return line.length > max ? line.slice(0, max - 1) + '…' : line
+}
+
+/**
+ * Classify a submitted prompt as a loop/cron automation, straight from the
+ * exact hook stream. The recurring runner re-fires the same prompt verbatim
+ * each turn, so these signatures appear on every iteration:
+ *   - `/loop …`                     a /loop run (typed, or self-paced re-fire)
+ *   - `<<autonomous-loop-dynamic>>` a self-paced autonomous /loop
+ *   - `<<autonomous-loop>>`         a cron-scheduled autonomous run
+ * Returns null for ordinary, human-typed prompts.
+ */
+function automationKind(prompt: string): 'loop' | 'cron' | null {
+  const p = prompt.trim()
+  if (p.includes('<<autonomous-loop-dynamic>>')) return 'loop'
+  if (p.includes('<<autonomous-loop>>')) return 'cron'
+  if (/^\/loop(\s|$)/i.test(p)) return 'loop'
+  return null
 }
 
 /** Short, redacted description of what a tool wants to do. */
@@ -206,7 +226,12 @@ function applyEvent(s: EventSession, line: EventLine): void {
       s.state = 'working'
       s.since = ts ?? s.since
       s.detail = undefined
-      if (ev.prompt) s.lastPrompt = firstLine(ev.prompt, 100)
+      if (ev.prompt) {
+        s.lastPrompt = firstLine(ev.prompt, 100)
+        // Sticky: once a session reveals itself as an automation it stays one,
+        // even on iterations whose inner prompt looks ordinary.
+        s.automation = s.automation ?? automationKind(ev.prompt) ?? undefined
+      }
       break
     case 'PermissionRequest':
       setWaiting(s, 'permission', ts)
@@ -269,8 +294,10 @@ async function applyFile(file: string): Promise<void> {
     appliedLines: 0
   }
   // Reset state-machine output (identity fields persist) before re-folding.
+  // automation is re-derived from the prompt lines below, so clear it too.
   s.state = 'unknown'
   s.detail = undefined
+  s.automation = undefined
   s.waitingSinceMs = undefined
   const lines = text.split('\n').filter((l) => l.trim())
   for (let i = 0; i < lines.length; i++) {
@@ -380,7 +407,8 @@ export function getEventSessions(): AgentSessionState[] {
       pid: s.pid,
       tty: s.tty,
       cwd: s.cwd,
-      repoPath: null
+      repoPath: null,
+      automation: s.automation
     })
   }
   return out

@@ -93,6 +93,54 @@ function AgentChips({ agent }: { agent: AgentSessionState }): JSX.Element | null
   )
 }
 
+const AUTOMATION_LABEL: Record<NonNullable<AgentSessionState['automation']>, string> = {
+  loop: 'loop',
+  cron: 'cron'
+}
+
+/** One row of the automations strip: the place, what kind of automation drives
+ *  it, and the live state — flashing so a long-running loop stays noticeable. */
+interface StripItem {
+  key: string
+  agent: AgentSessionState
+  place: string | null
+  onClick: (() => void) | undefined
+}
+
+/** The pop-out feed pinned beneath the terminal list: every active session
+ *  driven by a /loop run or a scheduled (cron) prompt, kept in view and
+ *  flashing its current status. Hidden entirely when nothing is looping. */
+function AutomationStrip({ items }: { items: StripItem[] }): JSX.Element | null {
+  if (items.length === 0) return null
+  return (
+    <div className="loop-strip">
+      <div className="loop-strip-head">
+        <span className="loop-strip-dot" />
+        <span className="loop-strip-title">Looping now</span>
+        <span className="loop-strip-count">{items.length}</span>
+      </div>
+      {items.map((it) => (
+        <div
+          key={it.key}
+          className={`loop-row loop-row-${it.agent.state} ${it.onClick ? 'term-clickable' : ''}`}
+          onClick={it.onClick}
+          title={it.onClick ? 'Jump to this terminal' : undefined}
+        >
+          <span className={`loop-kind loop-kind-${it.agent.automation}`}>
+            {AUTOMATION_LABEL[it.agent.automation!]}
+          </span>
+          <span className="loop-place">{it.place ?? 'claude'}</span>
+          <span
+            className={`term-state term-state-${it.agent.state} conf-${it.agent.confidence}`}
+          >
+            {STATE_LABEL[it.agent.state]}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function EntryRow({
   entry,
   onFocus
@@ -440,6 +488,29 @@ export default function TerminalsWindow(): JSX.Element {
   if (snap?.automation.iterm === 'denied') denied.push('iTerm2')
   const empty = !loading && entries.length === 0 && unbound.length === 0
 
+  // The automations pop-out draws from everything (independent of the plain-tab
+  // visibility pref): enumerable tabs focus on click; tmux/elsewhere sessions
+  // bring their host app forward when we know it.
+  const automationItems: StripItem[] = [
+    ...allEntries
+      .filter((e) => e.agent?.automation)
+      .map((e) => ({
+        key: `e-${e.app}-${e.windowId}-${e.tabIndex}-${e.tty ?? 'no-tty'}`,
+        agent: e.agent!,
+        place: lastSegment(e.repoPath) ?? lastSegment(e.agent!.cwd ?? e.cwd),
+        onClick: e.tty ? () => handleFocus(e) : undefined
+      })),
+    ...unbound
+      .filter((s) => s.automation)
+      .map((s) => ({
+        key: `u-${s.pid}`,
+        agent: s,
+        place: lastSegment(s.repoPath ?? s.cwd),
+        onClick:
+          s.host && s.host !== 'tmux' ? () => handleActivateHost(s.host!) : undefined
+      }))
+  ]
+
   return (
     <div className="term-window">
       <div className="term-header">
@@ -522,6 +593,7 @@ export default function TerminalsWindow(): JSX.Element {
       </div>
 
       <div className="term-footer">
+        <AutomationStrip items={automationItems} />
         {prefs && <PrefsRow prefs={prefs} onPatch={handlePatchPrefs} />}
         {hooks && (
           <HooksCard

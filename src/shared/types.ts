@@ -268,6 +268,11 @@ export interface AgentSessionState {
   cwd: string | null
   /** Imported repo the session's cwd belongs to, or null. */
   repoPath: string | null
+  /** Set when the session is driven by an automation rather than a person at
+   *  the keyboard: 'loop' for a /loop run, 'cron' for a scheduled prompt.
+   *  Derived exactly from the hook event stream (the submitted prompt), so it
+   *  only ever appears on hook-fed sessions. Feeds the automations strip. */
+  automation?: 'loop' | 'cron'
 }
 
 /** A tmux pane hosting a Claude session, focusable through an attached client. */
