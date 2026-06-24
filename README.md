@@ -9,7 +9,9 @@ Claude Code cost and sessions, running dev servers, your GitHub inbox, and your 
 A pull-out **activity feed** adds a live, cross-repo stream of your latest commits — each summarized
 by a **local LLM** — so you can see what your agents have shipped at a glance. A second pull-out, the
 **terminals panel**, lists every open terminal with live Claude session states: sessions **blocked on
-a permission prompt or your reply flash**, and clicking one jumps straight to that window.
+a permission prompt or your reply flash**, and clicking one jumps straight to that window. A
+**"Looping now"** strip in that panel keeps every running `/loop` and scheduled (**cron**) session
+pinned in view, so long-running automations never slip off your radar.
 
 Everything is **read-only and local-first** — the app shells out to tools you already have (`git`,
 the [GitHub CLI](https://cli.github.com), Claude Code) and **never stores a single credential of its
@@ -84,6 +86,11 @@ rest keeps working.
   sessions **flash**, a red **"waiting on you"** chip + dock badge + native notification route the
   attention, and clicking an entry **jumps straight to that terminal**. Optional one-click
   **Claude Code hooks** upgrade states from inferred to exact, updating instantly.
+- **"Looping now" strip** — a glowing pop-out pinned inside the terminals panel that surfaces every
+  active **`/loop`** run and scheduled (**cron**) prompt, each flashing its live state, so
+  long-running automations stay visible **between iterations**. Identified straight from the
+  submitted prompt — and detected even **without the hooks**, since a loop usually outlives any
+  hook install.
 
 **GitHub**
 - **Contribution graph** (incl. private contributions) with a current-streak readout.
@@ -306,7 +313,7 @@ tab and iTerm2 session — with its title, repo, and what's running in it. It ex
 question at a glance: **which of my Claude sessions needs me right now?**
 
 <p align="center">
-  <img src="docs/screenshot-terminals.png" alt="Terminals panel listing open terminals with live Claude session states — needs-permission, your-turn, and working badges with the pending tool, telemetry chips, an Elsewhere section for tmux/IDE sessions, preference toggles, and the exact-states hooks card" width="330" />
+  <img src="docs/screenshot-terminals.png" alt="Terminals panel listing open terminals with live Claude session states — needs-permission, your-turn, and working badges with the pending tool, telemetry chips, an Elsewhere section for tmux/IDE sessions, a glowing 'Looping now' strip surfacing active /loop and scheduled cron sessions with loop/cron badges and live states, preference toggles, and the exact-states hooks card" width="330" />
   <img src="docs/screenshot-terminals-events.png" alt="The terminals panel's Events tab — a newest-first timeline of agent lifecycle moments: session started, prompt submitted, asked to use a tool, turn finished, session ended" width="330" />
 </p>
 
@@ -321,6 +328,17 @@ question at a glance: **which of my Claude sessions needs me right now?**
   the toolbar button pulses while the panel is closed, the dock icon carries a badge count, and a
   native notification fires when a session starts waiting for permission — plus one nudge if it's
   still waiting five minutes later.
+- **"Looping now" strip.** A glowing accent card pinned to the foot of the panel calls out every
+  session driven by a **`/loop`** run or a scheduled (**cron**) prompt — bright `loop`/`cron`
+  badges, a pulsing live dot, a count, and per-row state flashing that mirrors the rows above (green
+  while working, red/amber when blocked on you). A loop stays listed **between iterations**, not just
+  while a prompt is mid-flight, so an automation that quietly keeps going — or suddenly needs you — is
+  impossible to miss against the calmer terminal rows. Membership is read from the submitted prompt
+  (a leading `/loop`, or the internal autonomous-loop / cron markers), so it's exact rather than
+  guessed from tab titles. Because loops are long-lived and usually predate any hook install, the
+  same tag is also re-derived from the **transcript — no hooks required**. Rows stay
+  click-to-focus, tmux and IDE sessions included; the strip hides itself entirely when nothing is
+  looping.
 - **Inferred vs exact states.** Out of the box states are *inferred* from each session's transcript
   and process activity (drawn as dashed badges — right nearly always, but a guess). Click
   **"Enable exact states…"** in the panel's footer to install six Claude Code lifecycle hooks: the
@@ -562,10 +580,15 @@ model is unavailable.
 **Session states** come from three independent, individually-degradable layers: AppleScript
 enumeration binds ttys to tabs; one `ps` pass identifies each tty's foreground process (and the
 Claude CLIs); and per-session state is either folded from hook-event files (`agentevents.ts`,
-exact, push-driven) or inferred from the transcript tail (`agentsessions.ts`, heuristic). A
-transcript write newer than a waiting event clears it back to *working* — so an answered permission
-prompt un-flashes immediately even though no hook fires for the answer itself. Sessions inside
-tmux get a fourth join (`tmux.ts`): pane tty → tmux session → attached client → the client's tab,
+exact, push-driven) or inferred from the transcript tail (`agentsessions.ts`, heuristic). Either
+layer also tags a session as a **`/loop`** or scheduled-**`cron`** automation when its submitted
+prompt matches a recurring-run signature (`automationKind`); the tag is **sticky** for the session's
+life and rides the existing session spreads to the panel's "Looping now" strip, so a loop stays
+surfaced between iterations — and, because it's re-derived from the transcript too, is caught even
+with **no hooks installed**. A transcript write newer than a waiting event clears it back to
+*working* — so an answered permission prompt un-flashes immediately even though no hook fires for
+the answer itself. Sessions inside tmux get a fourth join (`tmux.ts`): pane tty → tmux session →
+attached client → the client's tab,
 with focus routed through `switch-client`/`select-window`/`select-pane` first. The same event
 stream feeds the panel's **Events** tab through a capped, duplicate-free timeline.
 
@@ -845,6 +868,23 @@ forward. The panel never sends keystrokes, never answers prompts, and never writ
 You answered it (or the tool ran). No hook fires for the answer itself, but the session's
 transcript advances the moment Claude continues — the app watches for that write and flips the
 state back to *working* immediately.
+
+**What is the "Looping now" strip, and what counts as a loop?**
+It's a glowing pop-out pinned to the foot of the terminals panel that lists every Claude session
+currently driven by an automation — a **`/loop`** run (the `/loop` slash command, typed or
+self-paced) or a scheduled (**cron**) prompt — so a long-running agent stays visible even after it
+scrolls out of the terminal list above. A session is tagged the moment its submitted prompt matches
+one of those signatures, and the tag is **sticky**: a `/loop` only re-injects its prompt each
+interval, so the strip keeps the session listed *between* iterations instead of flickering in and
+out. Each row flashes its live state (working / your turn / needs permission) and stays
+click-to-focus. The strip hides itself entirely when nothing is looping.
+
+**Do loops show up without the exact-states hooks?**
+Yes. Loops are long-lived and the session is almost always started *before* you install the hooks,
+so Claude Code never loads the recorder for it and no hook events are written. The same `/loop`/cron
+signature is therefore also matched against the session's transcript tail (a `/loop` re-submits its
+prompt verbatim each interval, so it's recorded there) — which needs no hooks — so a running loop
+appears in the strip either way.
 
 ### Privacy, storage & platform
 

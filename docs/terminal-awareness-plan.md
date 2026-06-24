@@ -1,7 +1,8 @@
 # Terminal & Agent Session Awareness — Architecture
 
 > **Status: implemented.** This document began as the design plan for the feature set and is now
-> its as-built record. Every feature below shipped on the `multi-terminal` branch; the
+> its as-built record. The core feature set shipped on the `multi-terminal` branch, with the
+> "Looping now" automations strip added later (v1.4.0–v1.4.1); the
 > [delivery record](#9-delivery-record) maps each phase to its commits, and
 > [§8](#8-decisions-resolved) records how the original open questions were settled. Where the
 > implementation improved on the plan (live findings changed a few mechanisms for the better),
@@ -106,6 +107,14 @@ shims/wrappers around the user's `claude` binary.
   visibility.
 - **Unbound activation** — sessions in hosts without per-tab scripting (Cursor, VS Code,
   Ghostty) are clickable: app-level activation via `open -a`.
+- **"Looping now" automations strip** *(post-plan, v1.4.0–v1.4.1)* — a pop-out pinned beneath the
+  terminal list that surfaces every session driven by a `/loop` run or a scheduled (cron) prompt,
+  flashing its live state so a long-running automation stays visible *between* iterations rather than
+  only while a prompt is mid-flight. The `loop`/`cron` tag is derived **exactly from the submitted
+  prompt** (`automationKind`), not guessed from tab titles, and is sticky for the session's life. It
+  rides the existing session spreads with no new IPC. The two detection layers (the hook stream and
+  the transcript heuristic) are detailed in
+  [§3](#3-signal-inventory--three-independent-layers); see [§9](#9-delivery-record) for the commits.
 
 ---
 
@@ -244,6 +253,28 @@ States: `working` · `permission` · `input` · `ended` · `unknown`.
 | `SessionEnd`, or pid gone (30s sweep) | `ended` → entry clears, file deleted after grace |
 | hooks absent | heuristic classification (table above) |
 
+### Automation tagging (loop / cron) — `automationKind`
+
+Orthogonal to the state machine: whichever layer classifies a session also inspects its
+**submitted prompt** and tags the session `loop` or `cron` when it matches a recurring-run
+signature, feeding the panel's "Looping now" strip.
+
+| Prompt signature | Tag | Detected by |
+|---|---|---|
+| leading `/loop …` (typed, or a self-paced re-fire) | `loop` | `UserPromptSubmit` hook **and** transcript `last-prompt` |
+| `<<autonomous-loop-dynamic>>` (self-paced autonomous loop) | `loop` | as above |
+| `<<autonomous-loop>>` (cron-scheduled autonomous run) | `cron` | as above |
+
+The runner re-fires the same prompt verbatim each turn, so the signature reappears on every
+iteration. The tag is **sticky** — set once, kept for the session's lifetime — because a `/loop`
+re-injects its prompt only every interval, so between iterations the defining line scrolls past the
+32 KB transcript tail (and no hook fires on the inner turns). In the hook layer it's re-derived on
+each file re-fold (cleared first, so replay stays idempotent — `agentevents.ts`); in the heuristic
+layer it's remembered per transcript session id (`agentsessions.ts`). Crucially the heuristic path
+needs **no hooks at all**, and since a loop is long-lived and almost always started before any hook
+install, that path is usually the one that surfaces it. The tag rides the existing
+`AgentSessionState` spread through the merge and terminals layers with no new IPC.
+
 ---
 
 ## 4. Architecture (as built)
@@ -255,7 +286,7 @@ src/main/agentsessions.ts   heuristic transcript classifier + event/heuristic me
 src/main/agentevents.ts     hook-event watcher: state machine, clearing rule, timeline, GC, push
 src/main/hooks-setup.ts     consent-gated installer / uninstaller / variant switch + recorder script
 src/main/tmux.ts            pane↔client mapping + pane reveal
-src/renderer/src/components/TerminalsWindow.tsx   docked panel: Terminals|Events tabs, prefs, hooks card
+src/renderer/src/components/TerminalsWindow.tsx   docked panel: Terminals|Events tabs, "Looping now" strip, prefs, hooks card
 ```
 
 Everything privileged lives in the main process behind typed IPC; the renderer stays sandboxed.
@@ -399,6 +430,8 @@ bounded 5–60 min) — every notification class gated by the persisted preferen
 | 1 — zero-setup panel | `64250ca` detection layers (procs / agentsessions / terminals + dock table) · `9585c0b` docked panel UI, flash, chip, toolbar pulse |
 | 2 — exact states | `ea5793a` event watcher + consent installer · `853356b` push updates, notifications, dock badge, hooks card · `919182c` README |
 | 3 — extended | `d411669` palette launch + telemetry chips · `ec9a6d9` timeline backend, detailed variant, host activation, prefs, bounce · `4857718` Events tab, prefs toggles, unbound activation, stale escalation · `32f558e` repo-card launch button · `30c06ba` README · `efe8756` tmux mapping |
+| 4 — automations strip *(post-plan)* | `3f2f4df` "Looping now" pop-out — hook-stream loop/cron tagging + `AutomationStrip` UI (v1.4.0) · `1160338` hook-free detection via the transcript heuristic (v1.4.1) |
 
-Remaining nice-to-haves (not features): a README screenshot of the panel, and a hands-on tmux
-verification when a live server is available.
+The original nice-to-haves have since landed too: a README screenshot of the panel ships under
+[`docs/`](.) (regenerated from a synthetic, identity-free demo profile), leaving only a hands-on
+tmux verification against a live server outstanding.
