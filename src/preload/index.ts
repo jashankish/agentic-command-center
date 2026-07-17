@@ -99,6 +99,12 @@ const api = {
     ipcRenderer.on('sessions:update', handler)
     return () => ipcRenderer.removeListener('sessions:update', handler)
   },
+  // Claude Code credentials changed (/login or token refresh) — refetch quota.
+  onUsageUpdate: (cb: () => void): (() => void) => {
+    const handler = (): void => cb()
+    ipcRenderer.on('usage:update', handler)
+    return () => ipcRenderer.removeListener('usage:update', handler)
+  },
   // Dock badge count of sessions waiting on the user (0 clears it).
   setBadge: (n: number): Promise<void> => ipcRenderer.invoke('badge:set', n),
 

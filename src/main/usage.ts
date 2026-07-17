@@ -1,4 +1,5 @@
 import { execFile } from 'child_process'
+import { watch, type FSWatcher } from 'fs'
 import { readFile } from 'fs/promises'
 import { homedir } from 'os'
 import { join } from 'path'
@@ -32,6 +33,14 @@ let backoffUntil = 0
 // Coalesce concurrent callers (e.g. React StrictMode's double mount) onto one
 // in-flight request instead of firing several at once.
 let inflight: Promise<ClaudeUsage> | null = null
+// Poll the credential store faster while the widget is showing an error — the
+// user may be signing in to Claude Code right now.
+let lastResultHadError = false
+
+const CREDENTIALS_FILE = join(homedir(), '.claude', '.credentials.json')
+const CREDENTIAL_POLL_OK_MS = 60_000
+const CREDENTIAL_POLL_ERR_MS = 15_000
+const CREDENTIAL_DEBOUNCE_MS = 200
 
 interface OauthCreds {
   accessToken: string
@@ -78,6 +87,24 @@ async function readCredentials(): Promise<OauthCreds> {
   }
 }
 
+/** Cheap fingerprint of the active OAuth token — used to detect /login and
+ *  periodic refreshes without storing the token itself. */
+async function credentialFingerprint(): Promise<string | null> {
+  try {
+    const { accessToken, expiresAt } = await readCredentials()
+    return `${expiresAt ?? 0}:${accessToken.length}:${accessToken.slice(-8)}`
+  } catch {
+    return null
+  }
+}
+
+/** Drop cached usage so the next fetch re-reads credentials from Keychain/file. */
+export function invalidateUsageCache(): void {
+  cache = null
+  lastGood = null
+  backoffUntil = 0
+}
+
 /** Map a usage window object; returns null when the API omits it (e.g. null seven_day_opus). */
 function toWindow(raw: unknown): UsageWindow | null {
   if (!raw || typeof raw !== 'object') return null
@@ -97,6 +124,7 @@ export async function getClaudeUsage(): Promise<ClaudeUsage> {
 
   inflight = (async () => {
     const result = await fetchUsage()
+    lastResultHadError = !!result.error
     if (!result.error) {
       lastGood = result
       cache = { at: Date.now(), value: result }
@@ -154,5 +182,72 @@ async function fetchUsage(): Promise<ClaudeUsage> {
     // the widget tooltip — never contains the token (redactError scrubs secrets).
     console.error('[usage] unavailable:', message)
     return { session: EMPTY, weekly: EMPTY, weeklyOpus: EMPTY, error: message }
+  }
+}
+
+/**
+ * Watch Claude Code's credential store and push when the OAuth token changes.
+ * On macOS the token lives in Keychain (no fs events), so we poll; the file
+ * fallback is fs.watch'ed when present. Returns a cleanup function.
+ */
+export function initUsageCredentialWatch(onChange: () => void): () => void {
+  let lastFp: string | null | undefined
+  let debounce: ReturnType<typeof setTimeout> | null = null
+  let pollTimer: ReturnType<typeof setInterval> | null = null
+  const watchers: FSWatcher[] = []
+
+  const schedulePoll = (): void => {
+    if (pollTimer) clearInterval(pollTimer)
+    pollTimer = setInterval(
+      () => void check(),
+      lastResultHadError ? CREDENTIAL_POLL_ERR_MS : CREDENTIAL_POLL_OK_MS
+    )
+  }
+
+  const notify = (): void => {
+    invalidateUsageCache()
+    onChange()
+    schedulePoll()
+  }
+
+  const check = async (): Promise<void> => {
+    const fp = await credentialFingerprint()
+    if (lastFp === undefined) {
+      lastFp = fp
+      return
+    }
+    if (fp !== lastFp) {
+      lastFp = fp
+      notify()
+    }
+  }
+
+  const onFsEvent = (): void => {
+    if (debounce) clearTimeout(debounce)
+    debounce = setTimeout(() => void check(), CREDENTIAL_DEBOUNCE_MS)
+  }
+
+  try {
+    watchers.push(watch(CREDENTIALS_FILE, onFsEvent))
+  } catch {
+    // File may not exist yet (macOS Keychain-only installs).
+  }
+  try {
+    watchers.push(
+      watch(join(homedir(), '.claude'), (_type, name) => {
+        if (name === '.credentials.json') onFsEvent()
+      })
+    )
+  } catch {
+    // ~/.claude may not exist before first Claude Code run.
+  }
+
+  void check()
+  schedulePoll()
+
+  return () => {
+    if (debounce) clearTimeout(debounce)
+    if (pollTimer) clearInterval(pollTimer)
+    for (const w of watchers) w.close()
   }
 }

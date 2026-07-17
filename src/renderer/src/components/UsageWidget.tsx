@@ -58,10 +58,14 @@ export default function UsageWidget(): JSX.Element | null {
       window.api.getUsage().then(setUsage)
     }
     load()
+    const onPush = window.api.onUsageUpdate(load)
     // Poll gently — the usage endpoint rate-limits (429) frequent requests, and
     // the windows move slowly. The main process caches/backs off on top of this.
     const id = setInterval(load, 180000)
-    return () => clearInterval(id)
+    return () => {
+      onPush()
+      clearInterval(id)
+    }
   }, [])
 
   // Tick once a minute so the reset countdown stays accurate between polls

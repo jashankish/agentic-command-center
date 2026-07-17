@@ -381,7 +381,9 @@ Two parts:
 
 1. **Quota bars** — your **Session** (5-hour), **Weekly**, and (if your plan has one) **Opus**
    windows as progress bars (amber ≥ 70%, red > 90%), with a "Session quota resets in …" countdown.
-   This is your *real plan usage*, from Claude's official endpoint.
+   This is your *real plan usage*, from Claude's official endpoint. The main process watches Claude
+   Code's credential store, so after a `/login` (or a background token refresh) the cached result is
+   dropped and the bars recover within seconds — no restart, no waiting out the poll interval.
 2. **Cost panel** (dashboard view) — **estimated dollar cost** for **Today**, **This week**, and
    **All-time**, plus your **Recent plans** (the plan files Claude Code saved in `~/.claude/plans`).
 
@@ -455,7 +457,9 @@ Key guarantees:
 - **No credential ever enters the app's storage.** For git and `gh`, the external tool performs the
   request with its own auth; the app only parses stdout. The Claude usage token is *read* to make a
   single request and is **never stored, written, refreshed, or shown** — and it never leaves the
-  main process.
+  main process. The credential watch that detects a re-login keeps only a tiny in-memory
+  fingerprint (expiry + token length + last 8 characters), never the token itself, and never
+  persists it.
 - **Claude cost is fully offline.** It's derived purely from transcript files already on your disk;
   no Anthropic API call is made to compute it.
 - **Errors are scrubbed.** Before any `git`/`gh`/usage error is shown in the UI or logs, `redactError`
@@ -468,7 +472,8 @@ Key guarantees:
 - **Best-effort, undocumented bits.** The Claude usage endpoint and the transcript folder layout are
   **undocumented Claude Code internals** that can change without notice; treat the quota bars and
   cost as best-effort. They degrade gracefully (the panel shows "unavailable") if anything changes
-  or the token has expired (open Claude Code to refresh it).
+  or the token has expired — open Claude Code (or `/login`) to refresh it, and the bars recover on
+  their own as soon as the new token lands in the Keychain or credentials file.
 
 ---
 
@@ -482,7 +487,7 @@ rate-limited sources are polled gently:
 | Git status, dev servers, CPU/RAM | every 15s |
 | Claude cost/sessions, GitHub inbox | every 60s |
 | CI/PR/issue insights, calendar | every 5 min |
-| Claude quota bars | every 3 min (2-min cache + 429 backoff in the main process) |
+| Claude quota bars | every 3 min (2-min cache + 429 backoff in the main process); a credential watch **pushes immediately** when Claude Code's token changes (`/login` / refresh) |
 | Contribution graph | on day-rollover + ~every 10 min |
 | Activity feed | every 20s while open (and on re-show); summaries fill in as the on-device model finishes |
 | Terminals panel & session states | every 5s while the panel is open; every 15s for the chip/badge; **hook events push instantly** |
@@ -550,7 +555,7 @@ type-checked end to end.
 | `getStatus` / `commitPush` / `fetchRepo` | git status / stage+commit+push / fetch (`git.ts`) |
 | `getInsights` | CI / PR / review / issue counts via `gh` (`insights.ts`) |
 | `getClaudeActivity` | per-project cost/sessions from transcripts (`claude.ts`) |
-| `getUsage` | Claude quota via the OAuth usage endpoint (`usage.ts`) |
+| `getUsage` / `onUsageUpdate` | Claude quota via the OAuth usage endpoint / instant push when Claude Code's credentials change (`usage.ts`) |
 | `getContributions` | contribution calendar via `gh api graphql` (`contributions.ts`) |
 | `getInbox` | notifications + your PRs via `gh` (`inbox.ts`) |
 | `listDevServers` / `getScripts` / `runScript` | `lsof` mapping / package.json scripts / run (`devservers.ts`, `actions.ts`) |
@@ -643,7 +648,7 @@ agentic-command-center/
 │   │   ├── inbox.ts            # notifications + your PRs via gh
 │   │   ├── contributions.ts    # contribution calendar via gh graphql
 │   │   ├── claude.ts           # per-project cost/sessions from ~/.claude transcripts
-│   │   ├── usage.ts            # Claude quota via the OAuth usage endpoint
+│   │   ├── usage.ts            # Claude quota via the OAuth usage endpoint + credential watch
 │   │   ├── devservers.ts       # lsof dev-server detection + package.json scripts
 │   │   ├── procs.ts            # process table: foreground-per-tty, claude detection, lsof cwd
 │   │   ├── terminals.ts        # Terminal.app/iTerm2 enumeration + click-to-focus (AppleScript)
@@ -763,6 +768,13 @@ single read-only request.)
 
 **Does running this app consume any Claude tokens?**
 No. It never calls a model. It only *reads* usage numbers and transcript files that already exist.
+
+**The bars said "unavailable" after my Claude token expired — do I need to restart the app?**
+No. Sign back in (`/login` in Claude Code) and the bars refresh on their own: the main process
+watches the credential store (macOS Keychain via polling, `~/.claude/.credentials.json` via file
+watch — polling faster while the widget is in an error state), invalidates its usage cache the
+moment the token changes, and pushes a `usage:update` to the renderer so the widget refetches
+immediately instead of waiting for the next 3-minute poll.
 
 ### GitHub data
 
