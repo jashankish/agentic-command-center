@@ -523,7 +523,7 @@ export default function AwakeWidget({ state, open, onOpenChange }: Props): JSX.E
                     </span>
                     {state.batteryPercent !== null && (
                       <span className={`awake-stat ${state.onBattery ? 'warm' : ''}`}>
-                        {state.onBattery ? 'Battery' : 'Charging'} {state.batteryPercent}%
+                        {state.onBattery ? 'Battery' : 'Plugged in'} {state.batteryPercent}%
                       </span>
                     )}
                     {state.lowPowerByUs && <span className="awake-stat on">Low Power</span>}

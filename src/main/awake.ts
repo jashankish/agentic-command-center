@@ -135,6 +135,16 @@ async function readBattery(): Promise<{ onBattery: boolean; percent: number | nu
 }
 
 async function readLidClosed(): Promise<boolean> {
+  // Test hook: exercise the lid-close actions without closing the lid
+  // (`echo closed > $ACC_SIMULATE_LID`), like Insomnia's simulate-lid.sh.
+  const simulated = process.env.ACC_SIMULATE_LID
+  if (simulated) {
+    try {
+      return (await readFile(simulated, 'utf8')).trim() === 'closed'
+    } catch {
+      return false
+    }
+  }
   const r = await run('/usr/sbin/ioreg', ['-r', '-k', 'AppleClamshellState', '-d', '1'], 5000)
   return /"AppleClamshellState"\s*=\s*Yes/.test(r.stdout)
 }
@@ -152,14 +162,26 @@ async function setMuted(muted: boolean): Promise<boolean> {
 
 // ---------- app bundles (freeze list) ----------
 
-const bundlePathCache = new Map<string, string | null>()
+const bundlePathCache = new Map<string, string>()
 
+/** Where an app bundle lives. A running app is asked of LaunchServices first —
+ *  it knows bundles Spotlight never indexed (hidden folders, external disks,
+ *  Spotlight off), and only running apps can be frozen anyway. Spotlight is
+ *  the fallback for display names. Only hits are cached, so an app installed
+ *  after launch is still found. */
 async function bundlePath(bundleId: string): Promise<string | null> {
-  if (bundlePathCache.has(bundleId)) return bundlePathCache.get(bundleId)!
   if (!/^[A-Za-z0-9.-]+$/.test(bundleId)) return null
+  const running = await run('/usr/bin/lsappinfo', ['info', '-only', 'bundlepath', bundleId], 5000)
+  const live = /"LSBundlePath"="([^"]+)"/.exec(running.stdout)?.[1]
+  if (live) {
+    bundlePathCache.set(bundleId, live)
+    return live
+  }
+  const cached = bundlePathCache.get(bundleId)
+  if (cached) return cached
   const r = await run('/usr/bin/mdfind', [`kMDItemCFBundleIdentifier == '${bundleId}'`], 10_000)
   const path = r.stdout.split('\n').find((p) => p.endsWith('.app')) ?? null
-  bundlePathCache.set(bundleId, path)
+  if (path) bundlePathCache.set(bundleId, path)
   return path
 }
 
