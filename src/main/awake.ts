@@ -89,12 +89,15 @@ interface RunResult {
   ok: boolean
   stdout: string
   stderr: string
+  /** Killed for running past its timeout. */
+  timedOut: boolean
 }
 
 function run(file: string, args: string[], timeout = 20_000): Promise<RunResult> {
   return new Promise((resolve) => {
     execFile(file, args, { timeout, maxBuffer: 8 * 1024 * 1024 }, (err, stdout, stderr) => {
-      resolve({ ok: !err, stdout: String(stdout), stderr: String(stderr) })
+      const timedOut = !!err && (err as NodeJS.ErrnoException & { killed?: boolean }).killed === true
+      resolve({ ok: !err, stdout: String(stdout), stderr: String(stderr), timedOut })
     })
   })
 }
@@ -404,7 +407,9 @@ export async function installLidSetup(): Promise<AwakeState> {
     'exit $rc'
   ].join('; ')
   const r = await withAdmin(script)
-  if (!r.ok && !/User canceled|-128/.test(r.stderr)) {
+  if (r.timedOut) {
+    warn('The administrator prompt went unanswered for 2 minutes, so nothing was installed. Click Set up… to try again.')
+  } else if (!r.ok && !/User canceled|-128/.test(r.stderr)) {
     warn(`Lid-close setup failed: ${r.stderr.trim() || 'unknown error'}`)
   }
   await checkLidReady()
