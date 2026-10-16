@@ -133,7 +133,8 @@ export default function InfoDialog({ onClose }: { onClose: () => void }): JSX.El
             While a session runs and the lid is closed, the display sleeps, audio mutes, Low Power
             Mode turns on, and apps on the freeze list pause — all undone when the lid opens. On
             battery it switches to Low Power Mode below 40% and ends below 10%. Settings live under
-            the ⚙ in the awake popover.
+            the ⚙ in the awake popover, including <strong>Stay awake while agents work</strong>,
+            which extends a session 15 minutes at a time while a Claude session is mid-turn.
           </p>
 
           <h3 className="info-h">How the dollar values are calculated</h3>

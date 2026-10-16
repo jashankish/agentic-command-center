@@ -262,6 +262,14 @@ function SettingsView({
         <span className="awake-title">Awake settings</span>
       </div>
 
+      <div className="awake-group-label">Agents</div>
+      <Toggle
+        on={c.extendWhileAgentsWork}
+        label="Stay awake while agents work"
+        hint="When the timer runs out but a Claude session is still mid-turn, keep going 15 minutes at a time (up to 12 hours extra)."
+        onChange={(v) => set({ extendWhileAgentsWork: v })}
+      />
+
       <div className="awake-group-label">When the lid closes</div>
       <Toggle
         on={c.darkenDisplayOnLidClose}
@@ -489,6 +497,8 @@ export default function AwakeWidget({ state, open, onOpenChange }: Props): JSX.E
                     until {endLabel(new Date(endsAt), new Date(now))}
                     {session.extendedBy.length > 0 &&
                       ` · +${shortDuration(session.extendedBy.reduce((a, b) => a + b, 0))} added`}
+                    {(session.autoExtendedBy?.length ?? 0) > 0 &&
+                      ` · +${shortDuration((session.autoExtendedBy ?? []).reduce((a, b) => a + b, 0))} for agents`}
                   </div>
                   <div className="awake-progress">
                     <span style={{ width: `${fraction * 100}%` }} />
@@ -524,6 +534,16 @@ export default function AwakeWidget({ state, open, onOpenChange }: Props): JSX.E
                     {state.batteryPercent !== null && (
                       <span className={`awake-stat ${state.onBattery ? 'warm' : ''}`}>
                         {state.onBattery ? 'Battery' : 'Plugged in'} {state.batteryPercent}%
+                      </span>
+                    )}
+                    {state.config.extendWhileAgentsWork && (
+                      <span
+                        className={`awake-stat ${state.agentsWorking > 0 ? 'on' : ''}`}
+                        title="The session extends itself while Claude sessions are mid-turn"
+                      >
+                        {state.agentsWorking > 0
+                          ? `${state.agentsWorking} agent${state.agentsWorking === 1 ? '' : 's'} working`
+                          : 'Agent-aware'}
                       </span>
                     )}
                     {state.lowPowerByUs && <span className="awake-stat on">Low Power</span>}

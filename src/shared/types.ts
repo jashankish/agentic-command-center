@@ -395,6 +395,9 @@ export interface AwakeConfig {
   endFloor: number
   /** Low Power Mode at serious heat, end the session at critical heat. */
   thermalRules: boolean
+  /** When the timer runs out while a Claude session is still working, add
+   *  15 minutes at a time (up to 12 hours in total) instead of ending. */
+  extendWhileAgentsWork: boolean
 }
 
 /** A process the lid-close freeze stopped, with the identity that proves it. */
@@ -411,6 +414,8 @@ export interface AwakeSession {
   endsAt: string
   /** Seconds added to the session after it started, in order. */
   extendedBy: number[]
+  /** Seconds added automatically because agents were still working. */
+  autoExtendedBy?: number[]
 }
 
 /** How sleep is being held for the current session. */
@@ -454,4 +459,6 @@ export interface AwakeState {
   lastEnd: { at: string; reason: AwakeEndReason } | null
   /** No session, but something an earlier one changed is still not undone. */
   restorePending: boolean
+  /** Claude sessions working right now (refreshed while a session runs). */
+  agentsWorking: number
 }

@@ -5,7 +5,8 @@ import { chmod, mkdir, readFile, rename, rm, writeFile } from 'fs/promises'
 import { homedir, userInfo } from 'os'
 import { basename, join } from 'path'
 import { randomUUID } from 'crypto'
-import { getAwakeConfig, setAwakeConfig } from './store'
+import { getAwakeConfig, setAwakeConfig, listRepos } from './store'
+import { getTerminals } from './terminals'
 import type {
   AwakeConfig,
   AwakeEndReason,
@@ -36,6 +37,9 @@ const SUDOERS_FILE = '/etc/sudoers.d/agentic-command-center'
 const BACKSTOP_LABEL = 'com.jashan.agenticcommandcenter.awake-backstop'
 const MAX_SESSION_S = 30 * 24 * 3600
 const MIN_SESSION_S = 60
+/** Agent-aware extension: step size and the most it may add in total. */
+const AGENT_STEP_S = 15 * 60
+const AGENT_CAP_S = 12 * 3600
 
 /** Apps the freeze list may never stop: system processes, agent hosts and
  *  terminals (the work the session exists for), and this app. */
@@ -256,7 +260,8 @@ const live = {
   thermal: 'unknown' as AwakeState['thermal'],
   foreignSleepHold: false,
   warnings: [] as string[],
-  lastEnd: null as AwakeState['lastEnd']
+  lastEnd: null as AwakeState['lastEnd'],
+  agentsWorking: 0
 }
 
 function exclusive<T>(fn: () => Promise<T>): Promise<T> {
@@ -345,7 +350,8 @@ export function getAwakeState(): AwakeState {
     config,
     freezeApps: config.freezeList.map((id) => ({ bundleId: id, name: freezeNames[id] ?? id })),
     lastEnd: live.lastEnd,
-    restorePending: !j.session && runtimeDirty(j.runtime)
+    restorePending: !j.session && runtimeDirty(j.runtime),
+    agentsWorking: live.agentsWorking
   }
 }
 
@@ -681,12 +687,23 @@ function startMonitors(): void {
       })
     })
   }, 2000)
-  batteryTimer = setInterval(() => void pollBattery(), 60_000)
+  batteryTimer = setInterval(() => {
+    void pollBattery()
+    // Keep the "agents working" tag fresh while the agent rule is on.
+    if (getAwakeConfig().extendWhileAgentsWork) {
+      void countWorkingAgents().then((n) => {
+        if (n !== live.agentsWorking) {
+          live.agentsWorking = n
+          push()
+        }
+      })
+    }
+  }, 60_000)
   // Belt and braces next to the exact end timer: a sleeping or suspended
   // process can overshoot setTimeout, so check the deadline regularly too.
   tickTimer = setInterval(() => {
     const s = J().session
-    if (s && Date.now() >= new Date(s.endsAt).getTime()) void endSession('expired')
+    if (s && Date.now() >= new Date(s.endsAt).getTime()) void expire()
   }, 15_000)
   armEndTimer()
 }
@@ -703,7 +720,7 @@ function armEndTimer(): void {
   if (!s) return
   const ms = Math.max(0, new Date(s.endsAt).getTime() - Date.now())
   // setTimeout caps at ~24.8 days; the tick timer covers anything longer.
-  endTimer = setTimeout(() => void endSession('expired'), Math.min(ms, 2_000_000_000))
+  endTimer = setTimeout(() => void expire(), Math.min(ms, 2_000_000_000))
 }
 
 async function pollBattery(): Promise<void> {
@@ -818,6 +835,53 @@ async function extendNow(seconds: number): Promise<AwakeState> {
   armEndTimer()
   push()
   return getAwakeState()
+}
+
+/** Claude sessions currently mid-turn, from the terminals panel's snapshot. */
+async function countWorkingAgents(): Promise<number> {
+  try {
+    const snap = await getTerminals(listRepos())
+    return (
+      snap.entries.filter((e) => e.agent?.state === 'working').length +
+      snap.unbound.filter((u) => u.state === 'working').length
+    )
+  } catch {
+    return 0
+  }
+}
+
+/** The timer ran out. With "stay awake while agents work" on and a Claude
+ *  session still mid-turn, add 15 minutes (bounded at 12 hours in total) —
+ *  otherwise end. Re-checks the deadline, since an extend may have landed. */
+function expire(): Promise<AwakeState> {
+  return exclusive(async () => {
+    const s = J().session
+    if (!s || Date.now() < new Date(s.endsAt).getTime()) return getAwakeState()
+    const auto = (s.autoExtendedBy ?? []).reduce((a, b) => a + b, 0)
+    if (getAwakeConfig().extendWhileAgentsWork && auto < AGENT_CAP_S) {
+      live.agentsWorking = await countWorkingAgents()
+      if (live.agentsWorking > 0) {
+        const step = Math.min(AGENT_STEP_S, AGENT_CAP_S - auto)
+        const endsAt = Date.now() + step * 1000
+        const session = {
+          ...s,
+          endsAt: new Date(endsAt).toISOString(),
+          autoExtendedBy: [...(s.autoExtendedBy ?? []), step]
+        }
+        await writeJournal({ ...J(), session, endsAtEpoch: Math.floor(endsAt / 1000) })
+        armEndTimer()
+        if (auto === 0) {
+          notify(
+            'Staying awake — agents still working',
+            `${live.agentsWorking} Claude session${live.agentsWorking === 1 ? ' is' : 's are'} mid-turn, so the session keeps going 15 minutes at a time.`
+          )
+        }
+        push()
+        return getAwakeState()
+      }
+    }
+    return endNow('expired')
+  })
 }
 
 export function extendSession(seconds: number): Promise<AwakeState> {

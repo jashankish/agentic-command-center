@@ -260,7 +260,7 @@ export function buildData() {
     awake: {
       session: {
         id: 'awake-demo', startedAt: ago(72 * MIN),
-        endsAt: new Date(Date.now() + 168 * MIN).toISOString(), extendedBy: [3600]
+        endsAt: new Date(Date.now() + 168 * MIN).toISOString(), extendedBy: [3600], autoExtendedBy: []
       },
       mode: 'lid', lidReady: true, ruleOwned: true, lidClosed: false,
       onBattery: true, batteryPercent: 78, thermal: 'nominal',
@@ -268,14 +268,14 @@ export function buildData() {
       config: {
         darkenDisplayOnLidClose: true, muteOnLidClose: true, lowPowerOnLidClose: true,
         freezeList: ['com.tinyspeck.slackmacgap', 'net.whatsapp.WhatsApp', 'com.hnc.Discord'],
-        lowPowerFloor: 40, endFloor: 10, thermalRules: true
+        lowPowerFloor: 40, endFloor: 10, thermalRules: true, extendWhileAgentsWork: true
       },
       freezeApps: [
         { bundleId: 'com.tinyspeck.slackmacgap', name: 'Slack' },
         { bundleId: 'net.whatsapp.WhatsApp', name: 'WhatsApp' },
         { bundleId: 'com.hnc.Discord', name: 'Discord' }
       ],
-      lastEnd: null, restorePending: false
+      lastEnd: null, restorePending: false, agentsWorking: 2
     }
   }
 }

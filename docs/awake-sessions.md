@@ -13,6 +13,7 @@ Electron main process; the UI follows the command center's own glass/hairline/ac
 | Running | Live clock, "until <time>", progress bar, add-time chips (+15m +30m +1h +2h, `+…` custom), status tags, hold-to-end (0.6 s ring; release / slide off cancels). |
 | Sleep hold | `sudo -n pmset -a disablesleep 1` when the sudoers rule exists (`mode: 'lid'`), always plus `powerSaveBlocker('prevent-app-suspension')`. Without the rule: assertion only (`mode: 'assertion'`, "Lid open only"). |
 | Lid close | Sleep the display (`pmset displaysleepnow`, best effort), mute (osascript), Low Power Mode (`pmset -b lowpowermode 1`), SIGSTOP the freeze list. Lid open undoes all of it. |
+| Agents | Opt-in `extendWhileAgentsWork`: at expiry, if the terminals snapshot shows any Claude session in `working`, extend 15 min (`autoExtendedBy`), capped at 12 h total; first extension notifies. Waiting states (`permission`, `input`) don't count. |
 | Floors | On battery: LPM below `lowPowerFloor` (40), end below `endFloor` (10, 0 = off). Heat rules: LPM at `serious`, end at `critical`. |
 | Recovery | Journal before every change; reconcile at launch; launchd backstop for crashes; quit ends the session first. |
 | Palette | "Keep Mac awake for 1h / 4h / 8h", "Keep awake 1 hour longer", "End awake session", "Awake session…". |
@@ -74,6 +75,11 @@ All lifecycle work (start / extend / end / lid / floors / retry) runs through on
 `endSession()` from inside would deadlock. The end fires from an exact `setTimeout` (capped at
 ~24.8 days) backed by a 15 s deadline check, since timers drift across system sleep.
 
+Expiry goes through `expire()` (also inside the chain): it re-checks the deadline, then either
+auto-extends for working agents (`countWorkingAgents()` → `getTerminals(listRepos())`, entries +
+unbound sessions) or calls `endNow('expired')`. The 60 s battery timer also refreshes
+`agentsWorking` while the rule is on.
+
 ## 6. Components
 
 | File | Role |
@@ -98,6 +104,12 @@ overrides, private-framework brightness save/restore (display sleep is used inst
 freeze rule.
 
 ## 8. Delivery record
+
+- **Live-tested** in the real app (CDP-driven, throwaway profile, `ACC_SIMULATE_LID`): UI start,
+  hold-to-end (200 ms ignored, 900 ms ends), lid close/open (mute + SIGSTOP, then restore),
+  `kill -9` → backstop restore within 5 s of expiry, `kill -9` + relaunch → takeover, agent-aware
+  extension. Lid mode (`pmset disablesleep`, LPM) awaits an approved admin prompt.
+- **Testing hook**: `ACC_SIMULATE_LID=<file>` — the lid reads closed while the file says `closed`.
 
 - Branch `worktree-feature-insomnia-awake`. Screenshots via the headless harness:
   `npm run screenshots awake` (`screenshot-awake.png`, `screenshot-awake-settings.png`); the mock

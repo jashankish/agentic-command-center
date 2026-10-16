@@ -16,7 +16,8 @@ const DEFAULT_AWAKE_CONFIG: AwakeConfig = {
   freezeList: ['com.tinyspeck.slackmacgap', 'net.whatsapp.WhatsApp', 'com.hnc.Discord'],
   lowPowerFloor: 40,
   endFloor: 10,
-  thermalRules: true
+  thermalRules: true,
+  extendWhileAgentsWork: false
 }
 
 interface StoreSchema {

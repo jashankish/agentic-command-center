@@ -103,6 +103,8 @@ rest keeps working.
   four-command sudoers rule); without it, sessions still hold while the lid is open.
 - **Lid-close actions**: sleep the display, mute audio, Low Power Mode, and **freeze** chat apps
   (Slack, WhatsApp, Discord by default) — all undone when the lid opens.
+- **Stay awake while agents work** (opt-in) — if the timer runs out while a Claude session in the
+  terminals panel is still mid-turn, the session keeps going 15 minutes at a time (12 h cap).
 - **Battery & heat floors** (Low Power Mode below 40%, end below 10%, heat rules) and a
   **crash-safe recovery journal** + launchd backstop so a crash never leaves sleep disabled.
 
@@ -475,6 +477,12 @@ keeps running and opening the lid doesn't end the session):
   start time still matches is ever resumed. Agent hosts, terminals, editors, and `com.apple.*` apps
   can't be added.
 
+**Stay awake while agents work** — an opt-in rule under ⚙ → *Agents*. When the timer runs out but a
+Claude session the terminals panel sees is still **working** (mid-turn), the session extends itself
+by **15 minutes** instead of ending, re-checking each time, up to **12 hours** of automatic time; a
+notification says so the first time. The countdown notes *+Nm for agents* and a tag shows how many
+agents are working. Sessions waiting on you (permission / your turn) don't count — only real work.
+
 **Battery & heat** — on battery, Low Power Mode below **40%** and the session ends below **10%**
 (0 turns the end off); heat rules turn on Low Power Mode at *serious* and end at *critical*.
 
@@ -488,8 +496,8 @@ an *expired* session's changes if the app has crashed, then removes itself.
 > guarantee.
 
 <p align="center">
-  <img src="docs/screenshot-awake.png" alt="The awake popover over the bottom-right corner pill: a 02:48:00 countdown until 8:10 PM with +1h added, a gradient progress bar, +15m/+30m/+1h/+2h/+… add-time chips, lid and battery status tags, a Lid-close safe badge, and the press-and-hold end control" width="300" />
-  <img src="docs/screenshot-awake-settings.png" alt="Awake settings: toggles to sleep the display, mute audio, and turn on Low Power Mode when the lid closes; a freeze list with Slack, WhatsApp, and Discord; battery floors at 40% and 10%; heat rules; and the lid-close access status" width="300" />
+  <img src="docs/screenshot-awake.png" alt="The awake popover over the bottom-right corner pill: a 02:48:00 countdown until 8:10 PM with +1h added, a gradient progress bar, +15m/+30m/+1h/+2h/+… add-time chips, lid, battery, and agents-working status tags, a Lid-close safe badge, and the press-and-hold end control" width="300" />
+  <img src="docs/screenshot-awake-settings.png" alt="Awake settings: a Stay awake while agents work toggle; toggles to sleep the display, mute audio, and turn on Low Power Mode when the lid closes; a freeze list with Slack, WhatsApp, and Discord; battery floors at 40% and 10%; heat rules; and the lid-close access status" width="300" />
 </p>
 
 ---
@@ -981,6 +989,11 @@ lid is open.
 The session keeps holding until its end time — then the launchd backstop turns sleep back on,
 switches Low Power Mode off, unmutes, and resumes frozen apps. Relaunching the app does the same
 immediately for an expired session, or picks a running one back up.
+
+**Can a session last exactly as long as my agents take?**
+Turn on **Stay awake while agents work** (⚙ → Agents) and start a short session. When it runs out
+while a Claude session is still mid-turn, it extends 15 minutes at a time (up to 12 hours extra)
+and ends on its own once every session is idle or waiting on you.
 
 **I already use Insomnia — do they conflict?**
 They share the same four-command rule, so either install works for both. If sleep is already
