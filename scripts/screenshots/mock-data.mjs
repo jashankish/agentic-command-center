@@ -255,6 +255,27 @@ export function buildData() {
       preview: '{ "hooks": { "SessionStart": [ … ], "Stop": [ … ], "Notification": [ … ] } }',
       previewDetailed: '{ "hooks": { "SessionStart": [ … ], "PreToolUse": [ … ], "PostToolUse": [ … ] } }'
     },
-    panelPrefs: { notifyPermission: true, notifyInput: false, notifyStale: true, showPlainTerminals: true }
+    panelPrefs: { notifyPermission: true, notifyInput: false, notifyStale: true, showPlainTerminals: true },
+    // A keep-awake session 1h12m in, 2h48m to go, on battery with the lid open.
+    awake: {
+      session: {
+        id: 'awake-demo', startedAt: ago(72 * MIN),
+        endsAt: new Date(Date.now() + 168 * MIN).toISOString(), extendedBy: [3600]
+      },
+      mode: 'lid', lidReady: true, ruleOwned: true, lidClosed: false,
+      onBattery: true, batteryPercent: 78, thermal: 'nominal',
+      lowPowerByUs: false, mutedByUs: false, frozen: [], foreignSleepHold: false, warnings: [],
+      config: {
+        darkenDisplayOnLidClose: true, muteOnLidClose: true, lowPowerOnLidClose: true,
+        freezeList: ['com.tinyspeck.slackmacgap', 'net.whatsapp.WhatsApp', 'com.hnc.Discord'],
+        lowPowerFloor: 40, endFloor: 10, thermalRules: true
+      },
+      freezeApps: [
+        { bundleId: 'com.tinyspeck.slackmacgap', name: 'Slack' },
+        { bundleId: 'net.whatsapp.WhatsApp', name: 'WhatsApp' },
+        { bundleId: 'com.hnc.Discord', name: 'Discord' }
+      ],
+      lastEnd: null, restorePending: false
+    }
   }
 }

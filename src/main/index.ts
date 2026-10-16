@@ -5,6 +5,7 @@ import { initAgentEvents } from './agentevents'
 import { registerIpc } from './ipc'
 import { invalidateTerminalsCache } from './terminals'
 import { initUsageCredentialWatch } from './usage'
+import { initAwake } from './awake'
 
 // Name the app explicitly so the macOS menu bar (and dock / About panel / the
 // userData directory) read "Agentic Command Center" rather than "Electron".
@@ -256,6 +257,12 @@ app.whenReady().then(() => {
     for (const w of BrowserWindow.getAllWindows()) {
       if (!w.isDestroyed()) w.webContents.send('usage:update')
     }
+  })
+
+  // Reconcile any awake session an earlier run left behind (resume it, or
+  // undo what it changed) and register the quit-time restore.
+  initAwake().catch(() => {
+    // Awake sessions are optional; the rest of the app works without them.
   })
 
   createWindow()

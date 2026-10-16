@@ -267,3 +267,33 @@ export function IconSpark({ size = 14 }: IconProps): JSX.Element {
 export function IconActivity({ size = 16 }: IconProps): JSX.Element {
   return svg(size, <path d="M22 12h-4l-3 9L9 3l-3 9H2" />)
 }
+
+/** Awake-session mark: an open eye while the Mac is held awake, a closed,
+ *  lashed eye while it is free to sleep. */
+export function IconEye({ open, size = 15 }: IconProps & { open: boolean }): JSX.Element {
+  return open
+    ? svg(
+        size,
+        <>
+          <path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z" />
+          <circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none" />
+        </>
+      )
+    : svg(
+        size,
+        <>
+          <path d="M3 10.5c2.4 3.4 5.4 5 9 5s6.6-1.6 9-5" />
+          <path d="M12 15.5v2.2M7.4 14.4l-1.1 1.9M16.6 14.4l1.1 1.9M4.4 12.6l-1.6 1.3M19.6 12.6l1.6 1.3" />
+        </>
+      )
+}
+
+export function IconGear({ size = 14 }: IconProps): JSX.Element {
+  return svg(
+    size,
+    <>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </>
+  )
+}

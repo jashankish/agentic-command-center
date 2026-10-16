@@ -376,3 +376,82 @@ export interface PanelPrefs {
   /** Show terminals that aren't running Claude. */
   showPlainTerminals: boolean
 }
+
+// ---------- Awake sessions (keep the Mac awake for a set time) ----------
+
+/** User settings for awake sessions. Mirrors Insomnia's defaults. */
+export interface AwakeConfig {
+  /** Sleep the display on lid close (`pmset displaysleepnow`, best effort). */
+  darkenDisplayOnLidClose: boolean
+  /** Mute audio output on lid close; unmute on open. */
+  muteOnLidClose: boolean
+  /** Switch Low Power Mode on while the lid is closed. */
+  lowPowerOnLidClose: boolean
+  /** Bundle ids SIGSTOPped while the lid is closed, resumed on open. */
+  freezeList: string[]
+  /** On battery: Low Power Mode below this percentage. */
+  lowPowerFloor: number
+  /** On battery: end the session below this percentage. 0 turns it off. */
+  endFloor: number
+  /** Low Power Mode at serious heat, end the session at critical heat. */
+  thermalRules: boolean
+}
+
+/** A process the lid-close freeze stopped, with the identity that proves it. */
+export interface FrozenProcess {
+  pid: number
+  /** `ps -o lstart=` at freeze time; a reused pid never matches. */
+  startedAt: string
+  bundleId: string
+}
+
+export interface AwakeSession {
+  id: string
+  startedAt: string
+  endsAt: string
+  /** Seconds added to the session after it started, in order. */
+  extendedBy: number[]
+}
+
+/** How sleep is being held for the current session. */
+export type AwakeMode =
+  /** `pmset disablesleep 1`: survives closing the lid. */
+  | 'lid'
+  /** Power assertion only: holds while the lid is open. */
+  | 'assertion'
+
+export type AwakeEndReason =
+  | 'expired'
+  | 'user'
+  | 'battery'
+  | 'thermal'
+  | 'quit'
+  | 'recovered'
+
+export interface AwakeState {
+  session: AwakeSession | null
+  mode: AwakeMode | null
+  /** Passwordless `pmset` is allowed (sudoers rule present). */
+  lidReady: boolean
+  /** Whether the rule is the one this app installed (and can remove). */
+  ruleOwned: boolean
+  lidClosed: boolean
+  onBattery: boolean
+  batteryPercent: number | null
+  thermal: 'nominal' | 'fair' | 'serious' | 'critical' | 'unknown'
+  /** What the lid-close actions currently hold. */
+  lowPowerByUs: boolean
+  mutedByUs: boolean
+  frozen: FrozenProcess[]
+  /** Sleep was already disabled by something else when the session started. */
+  foreignSleepHold: boolean
+  /** Problems the user should see (failed restores, setup errors). */
+  warnings: string[]
+  config: AwakeConfig
+  /** The freeze list with display names resolved from installed apps. */
+  freezeApps: Array<{ bundleId: string; name: string }>
+  /** Most recent end, so the widget can say why a session stopped. */
+  lastEnd: { at: string; reason: AwakeEndReason } | null
+  /** No session, but something an earlier one changed is still not undone. */
+  restorePending: boolean
+}

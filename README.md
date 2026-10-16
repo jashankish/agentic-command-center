@@ -11,7 +11,9 @@ by a **local LLM** — so you can see what your agents have shipped at a glance.
 **terminals panel**, lists every open terminal with live Claude session states: sessions **blocked on
 a permission prompt or your reply flash**, and clicking one jumps straight to that window. A
 **"Looping now"** strip in that panel keeps every running `/loop` and scheduled (**cron**) session
-pinned in view, so long-running automations never slip off your radar.
+pinned in view, so long-running automations never slip off your radar. And an **awake** pill in the
+window's bottom-right corner keeps the Mac awake — **lid closed included** — for exactly as long as
+you choose, so overnight agent runs don't stall when the laptop sleeps, then puts everything back.
 
 Everything is **read-only and local-first** — the app shells out to tools you already have (`git`,
 the [GitHub CLI](https://cli.github.com), Claude Code) and **never stores a single credential of its
@@ -19,7 +21,7 @@ own**. If a tool isn't installed or signed in, that one panel simply shows as un
 rest keeps working.
 
 <p align="center">
-  <img src="docs/screenshot.png" alt="Agentic Command Center dashboard: the health bar leading with a 'waiting on you' chip, grouped repository cards, the GitHub inbox, Claude Code quota bars and cost, and the GitHub contribution graph" width="420" />
+  <img src="docs/screenshot.png" alt="Agentic Command Center dashboard: the health bar leading with a 'waiting on you' chip, grouped repository cards, the GitHub inbox, Claude Code quota bars and cost, the GitHub contribution graph, and the awake pill counting down in the bottom-right corner" width="420" />
 </p>
 
 > **macOS only.** This app targets macOS exclusively. Several core features rely on macOS-specific
@@ -49,6 +51,7 @@ rest keeps working.
   - [Claude Code Usage & cost](#claude-code-usage--cost)
   - [GitHub Contributions](#github-contributions)
   - [Info card](#info-card)
+  - [Awake sessions (keep the Mac awake)](#awake-sessions-keep-the-mac-awake)
 - [Where your data comes from (and privacy)](#where-your-data-comes-from-and-privacy)
 - [Refresh cadence](#refresh-cadence)
 - [Configuration & persisted state](#configuration--persisted-state)
@@ -91,6 +94,17 @@ rest keeps working.
   long-running automations stay visible **between iterations**. Identified straight from the
   submitted prompt — and detected even **without the hooks**, since a loop usually outlives any
   hook install.
+
+**Keeping the Mac awake**
+- **Awake sessions** — a corner pill that keeps the Mac awake for a **set duration** (days / hours /
+  minutes, or a preset), never an open-ended toggle. Shows a live countdown, adds time in one click,
+  and ends early only on a **press-and-hold**.
+- Survives **closing the lid** (via `pmset disablesleep`, after a one-time, password-approved
+  four-command sudoers rule); without it, sessions still hold while the lid is open.
+- **Lid-close actions**: sleep the display, mute audio, Low Power Mode, and **freeze** chat apps
+  (Slack, WhatsApp, Discord by default) — all undone when the lid opens.
+- **Battery & heat floors** (Low Power Mode below 40%, end below 10%, heat rules) and a
+  **crash-safe recovery journal** + launchd backstop so a crash never leaves sleep disabled.
 
 **GitHub**
 - **Contribution graph** (incl. private contributions) with a current-streak readout.
@@ -430,6 +444,54 @@ full explanation of the cost logic above. It's the fastest way for a new user to
   <img src="docs/screenshot-info.png" alt="Info card dialog explaining every icon, status color, and cost calculation" width="420" />
 </p>
 
+### Awake sessions (keep the Mac awake)
+
+Long agent runs die when the laptop sleeps. The pill in the window's **bottom-right corner** keeps
+the Mac awake for a **fixed, chosen duration** — never an open-ended toggle — then gives sleep back.
+A **closed eye** means the Mac may sleep; an **open eye** with a draining **countdown ring** means a
+session holds it awake (an amber dot flags anything needing attention).
+
+- **Start** — click the pill, type **Days / Hours / Minutes** (each field capped: 30 / 23 / 59;
+  ↑/↓ nudge, Enter starts) or pick a preset (30m → 3d). The button reads *Stay awake until 9:41 PM*.
+- **Add time** — `+15m` / `+30m` / `+1h` / `+2h` chips, or `+…` for a custom amount (30-day cap).
+- **End early** — **press and hold** the stop control: a red ring draws for 0.6 s and only a
+  completed ring ends it, so a stray click can't kill a session. Quitting the app ends it too.
+- **Status tags** — lid open/closed, battery %, and what the lid-close actions currently hold (Low
+  Power, Muted, N apps frozen, Hot).
+- **Lid-close access** — macOS sleeps on lid close no matter what an app asks, unless sleep is
+  disabled system-wide. **Set up…** asks for your admin password once and installs
+  `/etc/sudoers.d/agentic-command-center`, allowing **exactly four** commands without a password:
+  `pmset -a disablesleep 1|0` and `pmset -b lowpowermode 1|0` (validated with `visudo` first). The
+  same four as [Insomnia](https://github.com/krishhgg/Insomnia), so either app's rule works for
+  both. Without it the badge reads **Lid open only** and a power assertion holds while the lid is up.
+
+**When the lid closes** during a session (each toggleable under ⚙, all undone on open; the timer
+keeps running and opening the lid doesn't end the session):
+- the **display sleeps** (best effort — with sleep disabled macOS no longer does it itself),
+- audio is **muted** (and unmuted on open only if it was unmuted before),
+- **Low Power Mode** turns on (off again on open unless a battery/heat rule still wants it),
+- apps on the **freeze list** are paused with `SIGSTOP` — the whole bundle, helpers included — and
+  resumed with `SIGCONT`. Each pid is journaled with its start time first, and only a process whose
+  start time still matches is ever resumed. Agent hosts, terminals, editors, and `com.apple.*` apps
+  can't be added.
+
+**Battery & heat** — on battery, Low Power Mode below **40%** and the session ends below **10%**
+(0 turns the end off); heat rules turn on Low Power Mode at *serious* and end at *critical*.
+
+**Recovery** — every change is written to `awake/journal.json` *before* it is made. On launch the
+app resumes a session still in progress or undoes what an earlier run left changed; a failed
+restore stays visible with **Retry restore**. While a session runs, a **launchd backstop**
+(`~/Library/LaunchAgents/com.jashan.agenticcommandcenter.awake-backstop.plist`, every 60 s) undoes
+an *expired* session's changes if the app has crashed, then removes itself.
+
+> Use a stable, well-ventilated surface — never a closed bag. A running timer is not a safety
+> guarantee.
+
+<p align="center">
+  <img src="docs/screenshot-awake.png" alt="The awake popover over the bottom-right corner pill: a 02:48:00 countdown until 8:10 PM with +1h added, a gradient progress bar, +15m/+30m/+1h/+2h/+… add-time chips, lid and battery status tags, a Lid-close safe badge, and the press-and-hold end control" width="300" />
+  <img src="docs/screenshot-awake-settings.png" alt="Awake settings: toggles to sleep the display, mute audio, and turn on Low Power Mode when the lid closes; a freeze list with Slack, WhatsApp, and Discord; battery floors at 40% and 10%; heat rules; and the lid-close access status" width="300" />
+</p>
+
 ---
 
 ## Where your data comes from (and privacy)
@@ -501,7 +563,8 @@ limits. You can always force an immediate refresh with the ↻ button.
 
 The things saved are your **repo list**, your **favorite/group** labels per repo, your
 **view mode** (compact/dashboard), and the **terminals-panel preferences** (alert toggles +
-shell-tab visibility). They live in the OS user-data directory as JSON:
+shell-tab visibility), and the **awake-session settings** (lid-close actions, freeze list, battery
+floors). They live in the OS user-data directory as JSON:
 
 ```
 ~/Library/Application Support/agentic-command-center/config.json
@@ -514,7 +577,8 @@ shell-tab visibility). They live in the OS user-data directory as JSON:
 Two caches also live beside it: `summary-cache.json` (the activity feed's AI summaries, keyed by
 commit hash so the on-device model is never asked twice) and, with the exact-states hooks
 enabled, the short-lived per-session event files under `agent-events/` (deleted when sessions
-end, never exported). Nothing secret is ever written.
+end, never exported). Awake sessions keep their recovery journal and backstop script under
+`awake/` (owner-only). Nothing secret is ever written.
 
 ---
 
@@ -626,6 +690,12 @@ Designed to be safe to open-source and run on any developer's machine:
   leaves any other hooks untouched. The recorder script never writes to stdout, so it cannot
   influence a Claude Code permission decision; settings that fail to parse abort the operation
   rather than being rewritten.
+- **Awake sessions are scoped and journaled.** Lid-close access is a sudoers rule naming four exact
+  `pmset` commands (no wildcards), installed only after an explicit admin prompt, validated with
+  `visudo`, and removable from settings. Any program running as you can use those four commands too,
+  so the details view shows the rule before you approve it. Every change is journaled before it is
+  made; frozen processes are resumed only after their start time is re-verified; the launchd
+  backstop exists only while a session or an unfinished restore does.
 
 ---
 
@@ -662,6 +732,7 @@ agentic-command-center/
 │   │   ├── applesummarizer.ts  # spawns the bundled FoundationModels helper (availability + batches)
 │   │   ├── discover.ts         # scan a folder for git repos
 │   │   ├── system.ts           # CPU/memory snapshot
+│   │   ├── awake.ts            # awake sessions: pmset sleep hold, lid actions, floors, journal, backstop
 │   │   ├── calendar.ts         # today's macOS Calendar events (AppleScript)
 │   │   ├── redact.ts           # scrub credentials from error text
 │   │   └── store.ts            # electron-store: repos, view mode, metadata, settings I/O
@@ -672,8 +743,8 @@ agentic-command-center/
 │       │                       #   CommandPalette, StandupDialog, DiscoverDialog, InfoDialog,
 │       │                       #   PromptDialog, CommitDialog, ContributionGraph, UsageWidget,
 │       │                       #   FeedWindow (docked feed), TerminalsWindow (docked terminals
-│       │                       #   panel), icons
-│       └── lib/                # status.ts (deriveState), format.ts, notify.ts
+│       │                       #   panel), AwakeWidget (corner keep-awake pill), icons
+│       └── lib/                # status.ts (deriveState), format.ts, notify.ts, awake.ts
 ├── out/                        # build output (gitignored)
 └── dist/                       # packaged .dmg (gitignored)
 ```
@@ -898,6 +969,24 @@ signature is therefore also matched against the session's transcript tail (a `/l
 prompt verbatim each interval, so it's recorded there) — which needs no hooks — so a running loop
 appears in the strip either way.
 
+### Awake sessions
+
+**Why does keeping the Mac awake with the lid closed need my password?**
+macOS sleeps on lid close regardless of power assertions; only `pmset disablesleep 1` (a root
+command) prevents it. The one-time setup installs a sudoers rule for exactly four `pmset` commands
+so sessions can flip it without prompting. Skip it and sessions still keep the Mac awake while the
+lid is open.
+
+**What if the app crashes mid-session?**
+The session keeps holding until its end time — then the launchd backstop turns sleep back on,
+switches Low Power Mode off, unmutes, and resumes frozen apps. Relaunching the app does the same
+immediately for an expired session, or picks a running one back up.
+
+**I already use Insomnia — do they conflict?**
+They share the same four-command rule, so either install works for both. If sleep is already
+disabled when a session starts, the session uses it without claiming it (a **Shared hold** tag) and
+never turns it back on underneath the other app.
+
 ### Privacy, storage & platform
 
 **Does the app store my GitHub or Claude credentials?**
@@ -932,6 +1021,8 @@ Yes by default — click the 📌 pin button in the toolbar to toggle it.
 | **Calendar event never shows** | Grant Automation access when macOS prompts (System Settings → Privacy & Security → Automation), or ignore — it's optional. |
 | **Terminals panel shows a "grant access" notice** | You declined Automation for that terminal app — System Settings → Privacy & Security → Automation → Agentic Command Center, enable Terminal / iTerm2. |
 | **Session states look wrong / two sessions show the same task** | That's the inferred mode's known blur for two sessions in one project — enable **exact states** in the panel footer. |
+| **Awake badge says "Lid open only"** | Lid-close access isn't set up — click **Set up…** in the awake popover (or ⚙ → Lid-close access) and approve the admin prompt. |
+| **Sleep stays disabled after a session** | Open the awake popover and click **Retry restore**, or run `sudo pmset -a disablesleep 0` in Terminal. |
 | **"Open in editor" does nothing** | Install one of Cursor, VS Code, Zed, or Sublime Text. |
 
 ---

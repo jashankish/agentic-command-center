@@ -71,7 +71,7 @@ window.api = (function () {
     togglePin: async () => true,
     toggleFeed: async () => false,
     toggleTerminals: async () => false,
-    onFeedClosed: sub, onTerminalsClosed: sub, onSessionsUpdate: sub,
+    onFeedClosed: sub, onTerminalsClosed: sub, onSessionsUpdate: sub, onUsageUpdate: sub,
     setBadge: async () => {},
     launchAgent: async () => ok,
     pickDirectory: async () => [],
@@ -81,7 +81,13 @@ window.api = (function () {
     commitPush: async () => ok, fetchRepo: async () => ok,
     focusTerminal: async () => ok, activateHostApp: async () => ok,
     openEditor: async () => ok, openTerminal: async () => ok, reveal: async () => ok, openRemote: async () => ok,
-    runScript: async () => ok
+    runScript: async () => ok,
+    getAwake: async () => D.awake, refreshAwake: async () => D.awake,
+    startAwake: async () => D.awake, extendAwake: async () => D.awake, endAwake: async () => D.awake,
+    retryAwakeRestore: async () => D.awake, dismissAwake: async () => D.awake,
+    setAwakeConfig: async () => D.awake, setupAwakeLid: async () => D.awake, removeAwakeLid: async () => D.awake,
+    resolveAwakeApp: async (q) => ({ bundleId: q, name: q }),
+    onAwakeUpdate: sub
   };
 })();`
 }
@@ -97,6 +103,8 @@ const captureCss = `
   .info-scroll, .standup-body { max-height: none !important; overflow: visible !important; flex: none !important; }
   .dialog, .dialog-info, .dialog-wide { max-height: none !important; }
   #tt { display: none !important; }
+  #root { position: relative !important; }
+  .awake { position: absolute !important; }
 `
 
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json', '.woff2': 'font/woff2', '.woff': 'font/woff', '.ico': 'image/x-icon' }
@@ -115,6 +123,10 @@ const SHOTS = [
     prep: async (p) => { await p.click('button[title="What everything means"]'); await p.waitForSelector('.info-scroll') } },
   { file: 'screenshot-activity-feed.png', width: 320, hash: '#feed', waitFor: '.feed-entry', element: '.feed-window' },
   { file: 'screenshot-terminals.png', width: 360, hash: '#terminals', waitFor: '.term-entry', element: '.term-window' },
+  { file: 'screenshot-awake.png', width: 760, waitFor: '.card', element: '.awake',
+    prep: async (p) => { await p.click('.awake-pill'); await p.waitForSelector('.awake-clock') } },
+  { file: 'screenshot-awake-settings.png', width: 760, waitFor: '.card', element: '.awake',
+    prep: async (p) => { await p.click('.awake-pill'); await p.click('.awake-gear'); await p.waitForSelector('.awake-settings') } },
   { file: 'screenshot-terminals-events.png', width: 360, hash: '#terminals', waitFor: '.term-entry', element: '.term-window',
     prep: async (p) => { await p.click('button.term-tab >> text=Events'); await p.waitForSelector('.tl-entry') } }
 ]
@@ -156,6 +168,8 @@ async function main() {
     const ctx = await browser.newContext({ viewport: { width: s.width, height: 1000 }, deviceScaleFactor: 2 })
     await ctx.addInitScript(initJs)
     const page = await ctx.newPage()
+    // Surface renderer crashes (e.g. a window.api method missing from the mock).
+    page.on('pageerror', (e) => console.error('  ! page error:', e.message))
     await page.goto(base + (s.hash || ''), { waitUntil: 'networkidle' })
     await page.addStyleTag({ content: captureCss })
     if (s.waitFor) await page.waitForSelector(s.waitFor, { timeout: 15000 })

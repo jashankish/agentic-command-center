@@ -36,7 +36,20 @@ import {
   exportSettings,
   importSettings
 } from './store'
-import type { ViewMode, RepoMeta, FocusTarget, PanelPrefs } from '../shared/types'
+import {
+  getAwakeState,
+  refreshAwake,
+  startSession,
+  extendSession,
+  endSession,
+  retryRestore,
+  dismissAwakeWarnings,
+  updateAwakeConfig,
+  installLidSetup,
+  removeLidSetup,
+  resolveApp
+} from './awake'
+import type { ViewMode, RepoMeta, FocusTarget, PanelPrefs, AwakeConfig } from '../shared/types'
 
 export function registerIpc(): void {
   ipcMain.handle('repos:list', () => listRepos())
@@ -102,6 +115,19 @@ export function registerIpc(): void {
     lastBadge = count
     app.setBadgeCount(count)
   })
+
+  // Awake sessions: keep the Mac awake (lid closed included) for a set time.
+  ipcMain.handle('awake:get', () => getAwakeState())
+  ipcMain.handle('awake:refresh', () => refreshAwake())
+  ipcMain.handle('awake:start', (_e, seconds: number) => startSession(Number(seconds)))
+  ipcMain.handle('awake:extend', (_e, seconds: number) => extendSession(Number(seconds)))
+  ipcMain.handle('awake:end', () => endSession('user'))
+  ipcMain.handle('awake:retryRestore', () => retryRestore())
+  ipcMain.handle('awake:dismiss', () => dismissAwakeWarnings())
+  ipcMain.handle('awake:setConfig', (_e, patch: Partial<AwakeConfig>) => updateAwakeConfig(patch))
+  ipcMain.handle('awake:setup', () => installLidSetup())
+  ipcMain.handle('awake:removeSetup', () => removeLidSetup())
+  ipcMain.handle('awake:resolveApp', (_e, input: string) => resolveApp(String(input)))
 
   ipcMain.handle('view:get', () => getViewMode())
   ipcMain.handle('view:set', (_e, mode: ViewMode) => setViewMode(mode))

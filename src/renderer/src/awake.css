@@ -1,0 +1,725 @@
+/* ---------- Awake session (bottom-right corner) ---------- */
+/* A pill tucked into the window's bottom-right corner — closed eye while the
+ * Mac may sleep, open eye + countdown ring while a session holds it awake —
+ * that expands into a glass popover for the duration, add-time and settings. */
+.app {
+  /* Reserve the strip the pill sits in so it never covers the last card. */
+  padding-bottom: 40px;
+}
+
+.awake {
+  position: fixed;
+  right: 12px;
+  bottom: 8px;
+  z-index: 9;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.awake-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 6px;
+  border-radius: 999px;
+  border: 1px solid var(--hairline-soft);
+  background: var(--glass);
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.2s ease,
+    transform 0.1s ease;
+}
+
+.awake-pill:hover,
+.awake-pill.open {
+  background: var(--glass-strong);
+  color: var(--text);
+}
+
+.awake-pill:active {
+  transform: scale(0.96);
+}
+
+.awake-pill.active {
+  padding: 0 10px 0 2px;
+  color: var(--accent);
+  border-color: rgba(106, 168, 255, 0.4);
+  background: linear-gradient(180deg, rgba(106, 168, 255, 0.16), rgba(106, 168, 255, 0.06));
+  box-shadow:
+    inset 0 0 0 1px rgba(106, 168, 255, 0.12),
+    0 0 18px rgba(106, 168, 255, 0.16);
+}
+
+.awake-pill.attn::after {
+  content: '';
+  width: 6px;
+  height: 6px;
+  margin-left: -2px;
+  border-radius: 50%;
+  background: var(--amber);
+  box-shadow: 0 0 8px var(--amber);
+}
+
+.awake-pill-eye {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+}
+
+.awake-pill.active .awake-pill-eye {
+  width: 22px;
+  height: 22px;
+}
+
+.awake-pill-ring {
+  position: absolute;
+  inset: -1px;
+  width: 24px;
+  height: 24px;
+  transform: rotate(-90deg);
+}
+
+.awake-pill-ring circle {
+  fill: none;
+  stroke-width: 1.6;
+}
+
+.awake-pill-ring .track {
+  stroke: rgba(106, 168, 255, 0.2);
+}
+
+.awake-pill-ring .fill {
+  stroke: var(--accent);
+  stroke-linecap: round;
+  transition: stroke-dashoffset 1s linear;
+}
+
+.awake-pill-time {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Popover */
+.awake-pop {
+  width: 296px;
+  max-height: calc(100vh - 70px);
+  overflow-y: auto;
+  margin-bottom: 8px;
+  padding: 13px 14px 11px;
+  border-radius: 14px;
+  background: rgba(20, 22, 28, 0.97);
+  border: 1px solid var(--hairline);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  box-shadow:
+    0 18px 50px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  transform-origin: bottom right;
+  animation: awake-pop-in 0.16s ease;
+}
+
+.awake-pop::-webkit-scrollbar {
+  width: 6px;
+}
+.awake-pop::-webkit-scrollbar-thumb {
+  background: var(--hairline);
+  border-radius: 3px;
+}
+
+@keyframes awake-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.awake-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 11px;
+}
+
+.awake-mark {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  color: var(--muted);
+  background: var(--glass);
+}
+
+.awake-mark.on {
+  color: var(--accent);
+  background: rgba(106, 168, 255, 0.14);
+  box-shadow: 0 0 12px rgba(106, 168, 255, 0.25);
+}
+
+.awake-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.awake-mode {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--hairline-soft);
+  color: var(--faint);
+  white-space: nowrap;
+}
+
+.awake-mode.lid {
+  color: var(--green);
+  border-color: rgba(54, 211, 153, 0.35);
+  background: rgba(54, 211, 153, 0.08);
+}
+
+.awake-mode.open {
+  color: var(--amber);
+  border-color: rgba(245, 196, 81, 0.35);
+  background: rgba(245, 196, 81, 0.07);
+}
+
+.awake-gear {
+  width: 24px;
+  height: 24px;
+  margin-left: auto;
+}
+
+/* Days / Hours / Minutes pills */
+.awake-fields {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  flex: 1;
+}
+
+.awake-field {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 7px 4px 6px;
+  border-radius: 10px;
+  border: 1px solid var(--hairline);
+  background: rgba(0, 0, 0, 0.25);
+  cursor: text;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.awake-field:focus-within {
+  border-color: var(--accent);
+  background: rgba(106, 168, 255, 0.06);
+}
+
+.awake-field input {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 20px;
+  font-weight: 600;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  user-select: text;
+}
+
+.awake-field input::placeholder {
+  color: var(--faint);
+}
+
+.awake-field span {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.awake-field.filled span,
+.awake-field:focus-within span {
+  color: var(--muted);
+}
+
+.awake-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 10px 0;
+}
+
+.awake-chip {
+  font: inherit;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--hairline-soft);
+  background: var(--glass);
+  color: var(--muted);
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+  transition:
+    background 0.12s,
+    color 0.12s,
+    border-color 0.12s;
+}
+
+.awake-chip:hover {
+  background: var(--glass-strong);
+  color: var(--text);
+}
+
+.awake-chip.active {
+  color: var(--accent);
+  border-color: rgba(106, 168, 255, 0.4);
+  background: rgba(106, 168, 255, 0.1);
+}
+
+.awake-start {
+  width: 100%;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 9px;
+  background: var(--accent);
+  color: #06203f;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    transform 0.1s ease;
+}
+
+.awake-start:hover:not(:disabled) {
+  background: #7fb6ff;
+}
+
+.awake-start:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.awake-start:disabled {
+  background: var(--glass);
+  color: var(--faint);
+  cursor: default;
+}
+
+/* Running session */
+.awake-clock {
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  color: var(--text);
+}
+
+.awake-until {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.awake-progress {
+  height: 4px;
+  margin-top: 9px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+}
+
+.awake-progress span {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--accent), #b388ff);
+  box-shadow: 0 0 8px rgba(106, 168, 255, 0.5);
+  transition: width 1s linear;
+}
+
+.awake-extend {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  margin: -2px 0 10px;
+}
+
+.awake-extend .awake-field {
+  padding: 4px 2px 3px;
+}
+
+.awake-extend .awake-field input {
+  font-size: 15px;
+}
+
+.awake-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.awake-stat {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: var(--glass);
+  border: 1px solid var(--hairline-soft);
+  color: var(--muted);
+}
+
+.awake-stat.on {
+  color: var(--accent);
+  border-color: rgba(106, 168, 255, 0.3);
+}
+
+.awake-stat.warm {
+  color: var(--amber);
+}
+
+.awake-stat.hot {
+  color: var(--red);
+  border-color: rgba(255, 93, 98, 0.4);
+}
+
+.awake-end-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+/* Hold-to-end: a red ring draws around the stop glyph while held */
+.awake-hold {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.awake-hold svg {
+  position: absolute;
+  inset: 0;
+  transform: rotate(-90deg);
+}
+
+.awake-hold circle {
+  fill: none;
+  stroke-width: 2;
+}
+
+.awake-hold-track {
+  stroke: var(--hairline);
+  transition: stroke 0.15s ease;
+}
+
+.awake-hold:hover .awake-hold-track {
+  stroke: rgba(255, 93, 98, 0.35);
+}
+
+.awake-hold-ring {
+  stroke: var(--red);
+  stroke-linecap: round;
+}
+
+.awake-hold-glyph {
+  width: 10px;
+  height: 10px;
+  border-radius: 2.5px;
+  background: var(--muted);
+  transition:
+    background 0.15s ease,
+    transform 0.15s ease;
+}
+
+.awake-hold:hover .awake-hold-glyph,
+.awake-hold.holding .awake-hold-glyph {
+  background: var(--red);
+}
+
+.awake-hold.holding .awake-hold-glyph {
+  transform: scale(0.85);
+}
+
+/* Notices */
+.awake-warn {
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(245, 196, 81, 0.1);
+  border: 1px solid rgba(245, 196, 81, 0.4);
+  color: #ffe2a3;
+  font-size: 11px;
+  line-height: 1.45;
+  user-select: text;
+}
+
+.awake-warn > div + div {
+  margin-top: 4px;
+}
+
+.awake-warn-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 7px;
+}
+
+.awake-warn-actions:empty {
+  display: none;
+}
+
+.awake-setup {
+  margin-top: 11px;
+  padding: 9px 10px;
+  border-radius: 9px;
+  background: rgba(245, 196, 81, 0.06);
+  border: 1px solid rgba(245, 196, 81, 0.25);
+}
+
+.awake-setup p {
+  margin: 0 0 8px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.awake-setup code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  color: var(--text);
+}
+
+.awake-link {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.awake-faint {
+  font-size: 10.5px;
+  color: var(--faint);
+}
+
+.awake-last {
+  margin-top: 10px;
+}
+
+.awake-foot {
+  margin-top: 11px;
+  padding-top: 9px;
+  border-top: 1px solid var(--hairline-soft);
+  font-size: 9.5px;
+  color: var(--faint);
+}
+
+/* Settings view */
+.awake-back {
+  padding: 2px 6px 2px 2px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.awake-back:hover {
+  background: rgba(106, 168, 255, 0.1);
+}
+
+.awake-group-label {
+  margin: 12px 0 5px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.awake-head + .awake-group-label {
+  margin-top: 0;
+}
+
+.awake-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 5px 0;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.awake-switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 26px;
+  height: 15px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  transition: background 0.15s ease;
+}
+
+.awake-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  transition: transform 0.15s ease;
+}
+
+.awake-switch.on {
+  background: var(--accent);
+}
+
+.awake-switch.on::after {
+  transform: translateX(11px);
+}
+
+.awake-apps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 7px;
+}
+
+.awake-app {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  background: var(--glass);
+  border: 1px solid var(--hairline-soft);
+}
+
+.awake-app button {
+  display: grid;
+  place-items: center;
+  width: 15px;
+  height: 15px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--faint);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.awake-app button:hover {
+  background: rgba(255, 93, 98, 0.18);
+  color: var(--red);
+}
+
+.awake-add {
+  display: flex;
+  gap: 6px;
+}
+
+.awake-input,
+.awake-num {
+  min-width: 0;
+  padding: 5px 8px;
+  border-radius: 7px;
+  border: 1px solid var(--hairline);
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--text);
+  font: inherit;
+  font-size: 11.5px;
+  outline: none;
+  user-select: text;
+  transition: border-color 0.15s ease;
+}
+
+.awake-input {
+  flex: 1;
+}
+
+.awake-input:focus,
+.awake-num:focus {
+  border-color: var(--accent);
+}
+
+.awake-num {
+  width: 40px;
+  padding: 3px 4px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.awake-floor {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 0;
+  font-size: 12px;
+}
+
+.awake-floor > span:first-child {
+  flex: 1;
+}
+
+.awake-error-line {
+  margin-top: 5px;
+  font-size: 10.5px;
+  color: var(--red);
+}
+
+.awake-note {
+  margin: 0 0 7px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+}

@@ -14,7 +14,8 @@ import {
   IconExternal,
   IconChevron,
   IconPlay,
-  IconBranch
+  IconBranch,
+  IconEye
 } from './icons'
 
 interface Row {
@@ -88,6 +89,14 @@ export default function InfoDialog({ onClose }: { onClose: () => void }): JSX.El
     { icon: <IconPlay />, label: 'Run script', desc: 'Run an npm script (dev / build / test / …) in a new Terminal.' }
   ]
 
+  const awake: Row[] = [
+    { icon: <IconEye open={false} />, label: 'Closed eye (bottom-right)', desc: 'No awake session — the Mac may sleep as usual. Click to start one.' },
+    { icon: <IconEye open />, label: 'Open eye + countdown', desc: 'The Mac is held awake until the timer runs out. Click to add time or end it.' },
+    { icon: glyph('LID-CLOSE SAFE', 'chip-server'), label: 'Lid-close safe', desc: 'Closing the lid will not sleep the Mac (pmset disablesleep, via the one-time setup).' },
+    { icon: glyph('LID OPEN ONLY', 'chip-attn'), label: 'Lid open only', desc: 'Lid-close access is not set up; the session holds only while the lid is open.' },
+    { icon: glyph('■'), label: 'Hold to end', desc: 'Press and hold until the red ring closes — a quick click does nothing.' }
+  ]
+
   return (
     <div className="overlay" onClick={onClose}>
       <div className="dialog dialog-info" onClick={(e) => e.stopPropagation()}>
@@ -116,6 +125,15 @@ export default function InfoDialog({ onClose }: { onClose: () => void }): JSX.El
             repos need attention, how many have failing CI, PRs awaiting your review, your estimated
             Claude spend today, sessions active right now, running dev servers, your next calendar
             event, and current CPU / RAM load. Each item only appears when it&apos;s relevant.
+          </p>
+
+          <h3 className="info-h">Awake sessions</h3>
+          <Legend rows={awake} />
+          <p className="info-note">
+            While a session runs and the lid is closed, the display sleeps, audio mutes, Low Power
+            Mode turns on, and apps on the freeze list pause — all undone when the lid opens. On
+            battery it switches to Low Power Mode below 40% and ends below 10%. Settings live under
+            the ⚙ in the awake popover.
           </p>
 
           <h3 className="info-h">How the dollar values are calculated</h3>

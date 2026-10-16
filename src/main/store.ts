@@ -1,5 +1,5 @@
 import Store from 'electron-store'
-import type { ViewMode, RepoMeta, PanelPrefs } from '../shared/types'
+import type { ViewMode, RepoMeta, PanelPrefs, AwakeConfig } from '../shared/types'
 
 const DEFAULT_PANEL_PREFS: PanelPrefs = {
   notifyPermission: true,
@@ -8,15 +8,33 @@ const DEFAULT_PANEL_PREFS: PanelPrefs = {
   showPlainTerminals: true
 }
 
+/** Awake-session defaults, the same as Insomnia's. */
+const DEFAULT_AWAKE_CONFIG: AwakeConfig = {
+  darkenDisplayOnLidClose: true,
+  muteOnLidClose: true,
+  lowPowerOnLidClose: true,
+  freezeList: ['com.tinyspeck.slackmacgap', 'net.whatsapp.WhatsApp', 'com.hnc.Discord'],
+  lowPowerFloor: 40,
+  endFloor: 10,
+  thermalRules: true
+}
+
 interface StoreSchema {
   repos: string[]
   viewMode: ViewMode
   repoMeta: Record<string, RepoMeta>
   panelPrefs: PanelPrefs
+  awakeConfig: AwakeConfig
 }
 
 const store = new Store<StoreSchema>({
-  defaults: { repos: [], viewMode: 'dashboard', repoMeta: {}, panelPrefs: DEFAULT_PANEL_PREFS }
+  defaults: {
+    repos: [],
+    viewMode: 'dashboard',
+    repoMeta: {},
+    panelPrefs: DEFAULT_PANEL_PREFS,
+    awakeConfig: DEFAULT_AWAKE_CONFIG
+  }
 })
 
 export function listRepos(): string[] {
@@ -77,6 +95,30 @@ export function getPanelPrefs(): PanelPrefs {
 export function setPanelPrefs(patch: Partial<PanelPrefs>): PanelPrefs {
   const next = { ...getPanelPrefs(), ...patch }
   store.set('panelPrefs', next)
+  return next
+}
+
+export function getAwakeConfig(): AwakeConfig {
+  return { ...DEFAULT_AWAKE_CONFIG, ...store.get('awakeConfig') }
+}
+
+/** Merge a patch, keeping the floors sane: the end floor stays below the Low
+ *  Power floor (so Low Power Mode gets a chance first) unless it is 0 (off). */
+export function setAwakeConfig(patch: Partial<AwakeConfig>): AwakeConfig {
+  const next = { ...getAwakeConfig(), ...patch }
+  const clamp = (n: number, lo: number, hi: number): number =>
+    Math.min(hi, Math.max(lo, Math.round(Number.isFinite(n) ? n : lo)))
+  next.lowPowerFloor = clamp(next.lowPowerFloor, 5, 95)
+  next.endFloor = clamp(next.endFloor, 0, 90)
+  if (next.endFloor >= next.lowPowerFloor) {
+    if ('endFloor' in patch && !('lowPowerFloor' in patch)) {
+      next.lowPowerFloor = Math.min(95, next.endFloor + 5)
+    } else if (next.endFloor > 0) {
+      next.endFloor = Math.max(0, next.lowPowerFloor - 5)
+    }
+  }
+  next.freezeList = [...new Set(next.freezeList.filter((id) => typeof id === 'string' && id))]
+  store.set('awakeConfig', next)
   return next
 }
 

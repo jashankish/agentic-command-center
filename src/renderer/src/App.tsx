@@ -23,6 +23,7 @@ import StandupDialog from './components/StandupDialog'
 import PromptDialog from './components/PromptDialog'
 import InfoDialog from './components/InfoDialog'
 import CommandPalette, { type Command } from './components/CommandPalette'
+import AwakeWidget from './components/AwakeWidget'
 import {
   IconRefresh,
   IconPlus,
@@ -37,6 +38,7 @@ import {
 } from './components/icons'
 import { deriveState } from './lib/status'
 import { checkAgentNotifications, checkNotifications, requestNotifyPermission } from './lib/notify'
+import { useAwake, shortDuration } from './lib/awake'
 
 const nameOf = (p: string): string => p.split('/').pop() || p
 
@@ -72,6 +74,9 @@ export default function App(): JSX.Element {
   // Claude sessions currently blocked on the user (permission prompt, or a
   // recently finished turn) — drives the health-bar chip and toolbar pulse.
   const [agentsWaiting, setAgentsWaiting] = useState(0)
+  // Keep-awake session (bottom-right corner widget).
+  const awake = useAwake()
+  const [awakeOpen, setAwakeOpen] = useState(false)
 
   const flash = useCallback((msg: string) => {
     setToast(msg)
@@ -398,6 +403,18 @@ export default function App(): JSX.Element {
         label: `Switch to ${viewMode === 'dashboard' ? 'compact' : 'dashboard'} view`,
         run: handleToggleView
       },
+      ...(awake?.session
+        ? [
+            { id: 'awake-1h', label: 'Keep awake 1 hour longer', run: () => void window.api.extendAwake(3600) },
+            { id: 'awake-end', label: 'End awake session', run: () => void window.api.endAwake() }
+          ]
+        : [3600, 4 * 3600, 8 * 3600].map((s) => ({
+            id: `awake-${s}`,
+            label: `Keep Mac awake for ${shortDuration(s)}`,
+            hint: 'Awake session',
+            run: () => void window.api.startAwake(s)
+          }))),
+      { id: 'awake-open', label: 'Awake session…', run: () => setAwakeOpen(true) },
       { id: 'export', label: 'Export settings…', run: handleExport },
       { id: 'import-settings', label: 'Import settings…', run: handleImportSettings }
     ]
@@ -436,7 +453,7 @@ export default function App(): JSX.Element {
     })
     return [...global, ...perRepo]
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sorted, viewMode])
+  }, [sorted, viewMode, !!awake?.session])
 
   return (
     <div className="app">
@@ -637,6 +654,8 @@ export default function App(): JSX.Element {
       {paletteOpen && <CommandPalette commands={commands} onClose={() => setPaletteOpen(false)} />}
 
       {infoOpen && <InfoDialog onClose={() => setInfoOpen(false)} />}
+
+      <AwakeWidget state={awake} open={awakeOpen} onOpenChange={setAwakeOpen} />
 
       {toast && <div className="toast">{toast}</div>}
     </div>

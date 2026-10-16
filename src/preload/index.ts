@@ -19,7 +19,9 @@ import type {
   FocusTarget,
   HooksStatus,
   AgentTimelineEvent,
-  PanelPrefs
+  PanelPrefs,
+  AwakeState,
+  AwakeConfig
 } from '../shared/types'
 
 const api = {
@@ -104,6 +106,27 @@ const api = {
     const handler = (): void => cb()
     ipcRenderer.on('usage:update', handler)
     return () => ipcRenderer.removeListener('usage:update', handler)
+  },
+  // Awake sessions — keep the Mac awake for a set duration, lid closed included.
+  getAwake: (): Promise<AwakeState> => ipcRenderer.invoke('awake:get'),
+  refreshAwake: (): Promise<AwakeState> => ipcRenderer.invoke('awake:refresh'),
+  startAwake: (seconds: number): Promise<AwakeState> => ipcRenderer.invoke('awake:start', seconds),
+  extendAwake: (seconds: number): Promise<AwakeState> => ipcRenderer.invoke('awake:extend', seconds),
+  endAwake: (): Promise<AwakeState> => ipcRenderer.invoke('awake:end'),
+  retryAwakeRestore: (): Promise<AwakeState> => ipcRenderer.invoke('awake:retryRestore'),
+  dismissAwake: (): Promise<AwakeState> => ipcRenderer.invoke('awake:dismiss'),
+  setAwakeConfig: (patch: Partial<AwakeConfig>): Promise<AwakeState> =>
+    ipcRenderer.invoke('awake:setConfig', patch),
+  setupAwakeLid: (): Promise<AwakeState> => ipcRenderer.invoke('awake:setup'),
+  removeAwakeLid: (): Promise<AwakeState> => ipcRenderer.invoke('awake:removeSetup'),
+  resolveAwakeApp: (
+    input: string
+  ): Promise<{ bundleId: string; name: string } | { error: string }> =>
+    ipcRenderer.invoke('awake:resolveApp', input),
+  onAwakeUpdate: (cb: (state: AwakeState) => void): (() => void) => {
+    const handler = (_e: unknown, state: AwakeState): void => cb(state)
+    ipcRenderer.on('awake:update', handler)
+    return () => ipcRenderer.removeListener('awake:update', handler)
   },
   // Dock badge count of sessions waiting on the user (0 clears it).
   setBadge: (n: number): Promise<void> => ipcRenderer.invoke('badge:set', n),
