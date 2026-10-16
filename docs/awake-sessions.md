@@ -10,9 +10,11 @@ Electron main process; the UI follows the command center's own glass/hairline/ac
 | Area | Behaviour |
 |---|---|
 | Duration | Days / Hours / Minutes pills (ceilings 30 / 23 / 59, two digits, ↑/↓ nudge, Enter starts) + presets 30m · 1h · 2h · 4h · 8h · 12h · 1d · 3d. Min 1 min, max 30 days. Never a toggle. |
+| Refresh | Opening the popover calls `refreshAwake()`, which re-checks access + battery and pushes, so a rule installed from Terminal shows immediately. |
 | Running | Live clock, "until <time>", progress bar, add-time chips (+15m +30m +1h +2h, `+…` custom), status tags, hold-to-end (0.6 s ring; release / slide off cancels). |
 | Sleep hold | `sudo -n pmset -a disablesleep 1` when the sudoers rule exists (`mode: 'lid'`), always plus `powerSaveBlocker('prevent-app-suspension')`. Without the rule: assertion only (`mode: 'assertion'`, "Lid open only"). |
-| Lid close | Sleep the display (`pmset displaysleepnow`, best effort), mute (osascript), Low Power Mode (`pmset -b lowpowermode 1`), SIGSTOP the freeze list. Lid open undoes all of it. |
+| Health bar | `Awake · <countdown>` chip while a session runs (accent = `lid`, amber = `assertion`); `Awake restore pending` when `restorePending`. |
+| Lid close | Only in `lid` mode (or under `ACC_SIMULATE_LID`) — in assertion mode the Mac sleeps on close anyway. Sleep the display (`pmset displaysleepnow`, best effort), mute (osascript), Low Power Mode (`pmset -b lowpowermode 1`), SIGSTOP the freeze list. Lid open undoes all of it. |
 | Agents | Opt-in `extendWhileAgentsWork`: at expiry, if the terminals snapshot shows any Claude session in `working`, extend 15 min (`autoExtendedBy`), capped at 12 h total; first extension notifies. Waiting states (`permission`, `input`) don't count. |
 | Floors | On battery: LPM below `lowPowerFloor` (40), end below `endFloor` (10, 0 = off). Heat rules: LPM at `serious`, end at `critical`. |
 | Recovery | Journal before every change; reconcile at launch; launchd backstop for crashes; quit ends the session first. |

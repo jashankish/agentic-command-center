@@ -21,7 +21,7 @@ own**. If a tool isn't installed or signed in, that one panel simply shows as un
 rest keeps working.
 
 <p align="center">
-  <img src="docs/screenshot.png" alt="Agentic Command Center dashboard: the health bar leading with a 'waiting on you' chip, grouped repository cards, the GitHub inbox, Claude Code quota bars and cost, the GitHub contribution graph, and the awake pill counting down in the bottom-right corner" width="420" />
+  <img src="docs/screenshot.png" alt="Agentic Command Center dashboard: the health bar leading with a 'waiting on you' chip, grouped repository cards, the GitHub inbox, Claude Code quota bars and cost, the GitHub contribution graph, an Awake chip, and the awake pill counting down in the bottom-right corner" width="420" />
 </p>
 
 > **macOS only.** This app targets macOS exclusively. Several core features rely on macOS-specific
@@ -470,8 +470,9 @@ session holds it awake (an amber dot flags anything needing attention).
   same four as [Insomnia](https://github.com/krishhgg/Insomnia), so either app's rule works for
   both. Without it the badge reads **Lid open only** and a power assertion holds while the lid is up.
 
-**When the lid closes** during a session (each toggleable under ⚙, all undone on open; the timer
-keeps running and opening the lid doesn't end the session):
+**When the lid closes** during a lid-close-safe session (each toggleable under ⚙, all undone on
+open; the timer keeps running and opening the lid doesn't end the session — in *lid open only*
+mode the Mac simply sleeps, so none of these run):
 - the **display sleeps** (best effort — with sleep disabled macOS no longer does it itself),
 - audio is **muted** (and unmuted on open only if it was unmuted before),
 - **Low Power Mode** turns on (off again on open unless a battery/heat rule still wants it),
