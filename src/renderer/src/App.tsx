@@ -530,6 +530,7 @@ export default function App(): JSX.Element {
         system={system}
         calendar={calendar}
         agentsWaiting={agentsWaiting}
+        awake={awake}
       />
 
       <h2 className="section-title">Repositories</h2>

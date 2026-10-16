@@ -4,10 +4,12 @@ import type {
   ClaudeActivity,
   DevServer,
   SystemStats,
-  CalendarData
+  CalendarData,
+  AwakeState
 } from '../../../shared/types'
 import { deriveState } from '../lib/status'
 import { fmtCost } from '../lib/format'
+import { countdown, endLabel } from '../lib/awake'
 
 interface Props {
   statuses: RepoStatus[]
@@ -18,6 +20,8 @@ interface Props {
   calendar: CalendarData | null
   /** Claude sessions currently blocked on the user (terminals panel). */
   agentsWaiting?: number
+  /** Keep-awake session, shown as a chip while one runs. */
+  awake?: AwakeState | null
 }
 
 function nextEvent(calendar: CalendarData | null): string | null {
@@ -49,7 +53,8 @@ export default function HealthBar({
   devServers,
   system,
   calendar,
-  agentsWaiting = 0
+  agentsWaiting = 0,
+  awake = null
 }: Props): JSX.Element {
   const attention = statuses.filter((s) => deriveState(s).needsAttention).length
   const ciFail = Object.values(insights).filter((i) => i.ci === 'fail').length
@@ -107,6 +112,26 @@ export default function HealthBar({
       tone: 'accent',
       label: `${devServers.length} dev server${devServers.length === 1 ? '' : 's'} up`,
       title: devServers.map((s) => `:${s.port} ${s.command}`).join('\n')
+    })
+  }
+
+  if (awake?.session) {
+    const ends = new Date(awake.session.endsAt)
+    chips.push({
+      key: 'awake',
+      tone: awake.mode === 'lid' ? 'accent' : 'amber',
+      label: `Awake · ${countdown(ends.getTime() - Date.now())}`,
+      title:
+        `Mac held awake until ${endLabel(ends)}` +
+        (awake.mode === 'lid' ? ', lid closed included' : ' — only while the lid is open') +
+        ' (bottom-right corner to change)'
+    })
+  } else if (awake?.restorePending) {
+    chips.push({
+      key: 'awake',
+      tone: 'amber',
+      label: 'Awake restore pending',
+      title: "An earlier awake session's changes are not all undone — open the corner awake panel"
     })
   }
 

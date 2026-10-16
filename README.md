@@ -223,6 +223,9 @@ A live, one-line summary directly under the toolbar. Each chip only appears when
 - **$X Claude today** — estimated Claude Code spend today (see [cost](#claude-code-usage--cost)).
 - **N sessions active** — Claude Code sessions touched in the last few minutes.
 - **N dev servers up** — running local servers mapped to an imported repo.
+- **Awake · 2h 48m** — an [awake session](#awake-sessions-keep-the-mac-awake) is holding the Mac
+  awake (blue = lid-close safe, amber = lid open only); *Awake restore pending* flags an unfinished
+  restore.
 - **&lt;event&gt; · time** — your next calendar event today.
 - **CPU x% · RAM y%** — system load (1-minute average) and memory use.
 

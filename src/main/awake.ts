@@ -612,6 +612,10 @@ async function unmute(): Promise<void> {
 }
 
 async function onLidClosed(): Promise<void> {
+  // Without the sleep hold, closing the lid sleeps the Mac regardless, so
+  // muting or freezing on the way down only leaves things to undo on wake.
+  // (The lid-simulation test hook exercises them in either mode.)
+  if (J().mode !== 'lid' && !process.env.ACC_SIMULATE_LID) return
   const config = getAwakeConfig()
   if (config.muteOnLidClose) await muteForLid().catch(() => undefined)
   await freezeApps(config).catch(() => undefined)
@@ -974,11 +978,14 @@ export async function updateAwakeConfig(patch: Partial<AwakeConfig>): Promise<Aw
   return getAwakeState()
 }
 
+/** Re-read access and battery (the popover calls this as it opens) and push,
+ *  so a rule installed from Terminal or a charger plugged in shows at once. */
 export async function refreshAwake(): Promise<AwakeState> {
   await checkLidReady()
   const b = await readBattery()
   live.onBattery = b.onBattery
   live.batteryPercent = b.percent
+  push()
   return getAwakeState()
 }
 
