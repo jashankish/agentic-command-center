@@ -143,6 +143,9 @@ Docker idle freeze rule.
     dev` beside the installed app) stays passive — it no longer takes over the live session on
     launch and then ends it on quit. `passiveOwner` keeps an empty in-memory journal; journal
     writes, the backstop, start/extend/retry, auto-start, and the quit-restore all stand down.
+    Once the owner quits (pid gone or reused — start time compared), `adoptIfOwnerGone()` (every
+    60 s and on popover open) re-reads the journal and runs the shared `reconcile()`: take over a
+    session still in progress, or restore an ended / interrupted one.
   - **Backstop isolation:** the launchd backstop label is per-profile for non-default profiles, so a
     dev build or test profile ending its session can't remove the installed app's crash protection.
   - Dev: `npm run fix:electron` re-signs the revoked dev Electron (`5987d3f`).

@@ -627,7 +627,8 @@ App Nap — then removes itself.
 
 **One copy at a time** — if a second copy of the app runs on the same profile (say, a dev build
 beside the installed app), it leaves the awake session to the copy that owns it and says so,
-rather than taking it over or ending it when it quits.
+rather than taking it over or ending it when it quits. If the owning copy quits first, the other
+picks the session up within a minute (or as soon as you open its popover).
 
 > Use a stable, well-ventilated surface — never a closed bag. A running timer is not a safety
 > guarantee.

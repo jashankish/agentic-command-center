@@ -308,6 +308,8 @@ let quitting = false
  *  backstop, and keeps an empty journal in memory so no handler acts on the
  *  other copy's session. */
 let passiveOwner: number | null = null
+/** The owner's `ps` start time, so a reused pid is never mistaken for it. */
+let passiveOwnerStart = ''
 const passiveMessage = (pid: number): string =>
   `Another copy of the command center (pid ${pid}) is running awake sessions for this profile, so this copy won't change anything. Use that one, or quit it and relaunch this one.`
 /** Serializes start / extend / end / lid / floor work so they never interleave. */
@@ -1355,6 +1357,7 @@ export async function updateAwakeConfig(patch: Partial<AwakeConfig>): Promise<Aw
 /** Re-read access and battery (the popover calls this as it opens) and push,
  *  so a rule installed from Terminal or a charger plugged in shows at once. */
 export async function refreshAwake(): Promise<AwakeState> {
+  await adoptIfOwnerGone().catch(() => undefined)
   await checkLidReady()
   const b = await readBattery()
   live.onBattery = b.onBattery
@@ -1366,6 +1369,45 @@ export async function refreshAwake(): Promise<AwakeState> {
 
 /** Reconcile the journal at launch: resume a session still in progress, or
  *  undo whatever an earlier run left changed. */
+/** Pick up whatever the journal holds: take over a session still in progress
+ *  (the journal then names this process), or undo what an ended or
+ *  interrupted one left changed. Runs at launch and when a passive copy
+ *  adopts the journal after its owner quits. */
+async function reconcile(found: Journal | null): Promise<void> {
+  journal = found ?? emptyJournal()
+  const b = await readBattery()
+  live.onBattery = b.onBattery
+  live.batteryPercent = b.percent
+  const lid = await readLid()
+  live.lidClosed = lid.closed
+  live.clamshell = lid.clamshell
+
+  const s = journal.session
+  if (s && new Date(s.endsAt).getTime() > Date.now()) {
+    await writeJournal(journal).catch(() => undefined)
+    holdAssertion()
+    await armBackstop().catch(() => undefined)
+    startMonitors()
+    // Not away (lid open, or clamshell in use): undo any lid-close actions.
+    if (!lid.away) await exclusive(onLidOpened).catch(() => undefined)
+  } else if (s || runtimeDirty(journal.runtime)) {
+    await endSession('recovered')
+  }
+}
+
+/** While passive: once the owning copy has quit (its pid is gone, or now
+ *  belongs to a different process), adopt the journal — re-read fresh, since
+ *  the owner may have changed it right up to the end. */
+async function adoptIfOwnerGone(): Promise<void> {
+  if (passiveOwner === null) return
+  if ((await processStart(passiveOwner)) === passiveOwnerStart) return
+  passiveOwner = null
+  passiveOwnerStart = ''
+  clearWarnings()
+  await reconcile(await readJournal())
+  push()
+}
+
 export async function initAwake(): Promise<void> {
   dir = join(app.getPath('userData'), 'awake')
   journalPath = join(dir, 'journal.json')
@@ -1399,35 +1441,22 @@ export async function initAwake(): Promise<void> {
     (await processStart(found.appPid)) === found.appStartedAt
   ) {
     passiveOwner = found.appPid
+    passiveOwnerStart = found.appStartedAt
     journal = emptyJournal()
     warn(passiveMessage(found.appPid))
-    return
-  }
-  journal = found ?? emptyJournal()
-  const b = await readBattery()
-  live.onBattery = b.onBattery
-  live.batteryPercent = b.percent
-  const lid = await readLid()
-  live.lidClosed = lid.closed
-  live.clamshell = lid.clamshell
-
-  const s = journal.session
-  if (s && new Date(s.endsAt).getTime() > Date.now()) {
-    // The app restarted mid-session: take it over (the journal now names us).
-    await writeJournal(journal).catch(() => undefined)
-    holdAssertion()
-    await armBackstop().catch(() => undefined)
-    startMonitors()
-    // Not away (lid open, or clamshell in use): undo any lid-close actions.
-    if (!lid.away) await exclusive(onLidOpened).catch(() => undefined)
-  } else if (s || runtimeDirty(journal.runtime)) {
-    await endSession('recovered')
+  } else {
+    await reconcile(found)
   }
 
-  setInterval(() => void autoStartTick().catch(() => undefined), AUTO_WATCH_MS)
+  setInterval(() => {
+    // A passive copy adopts the journal once its owner has quit.
+    void adoptIfOwnerGone()
+      .then(() => autoStartTick())
+      .catch(() => undefined)
+  }, AUTO_WATCH_MS)
 
   app.on('before-quit', (e) => {
-    if (quitting) return
+    if (quitting || passiveOwner !== null) return
     const j = J()
     if (!j.session && !runtimeDirty(j.runtime)) return
     // Quit undoes the session first, the same as ending it.
