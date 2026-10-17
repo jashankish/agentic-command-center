@@ -531,6 +531,7 @@ export default function App(): JSX.Element {
         calendar={calendar}
         agentsWaiting={agentsWaiting}
         awake={awake}
+        onOpenAwake={() => setAwakeOpen(true)}
       />
 
       <h2 className="section-title">Repositories</h2>

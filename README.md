@@ -234,7 +234,7 @@ A live, one-line summary directly under the toolbar. Each chip only appears when
 - **N dev servers up** — running local servers mapped to an imported repo.
 - **Awake · 2h 48m** — an [awake session](#awake-sessions-keep-the-mac-awake) is holding the Mac
   awake (blue = lid-close safe, amber = lid open only); *Awake restore pending* flags an unfinished
-  restore.
+  restore. Click it to open the awake popover.
 - **&lt;event&gt; · time** — your next calendar event today.
 - **CPU x% · RAM y%** — system load (1-minute average) and memory use.
 
@@ -284,11 +284,13 @@ sync. Useful when you want a denser overview.
 
 Press **⌘K** (or the 🔍 button) for a fuzzy-searchable list. It includes **every action** — Import,
 Scan folder, Standup, Refresh, toggle view, Export/Import settings — plus per-repo **Start Claude
-session / Open in editor / Reveal in Finder / Open on GitHub** entries, so you can drive the whole
-app from the keyboard.
+session / Open in editor / Reveal in Finder / Open on GitHub** entries, and the
+[awake-session](#awake-sessions-keep-the-mac-awake) shortcuts — **Keep Mac awake for 1h / 4h / 8h**,
+or **Keep awake 1 hour longer** and **End awake session** while one runs — so you can drive the
+whole app from the keyboard.
 
 <p align="center">
-  <img src="docs/screenshot-command-palette.png" alt="Command palette showing searchable list of actions and repos" width="420" />
+  <img src="docs/screenshot-command-palette.png" alt="Command palette showing a searchable list of actions — import, scan, standup, refresh, view toggle, the awake-session commands (keep awake 1 hour longer, end awake session, awake session…), and settings export/import" width="420" />
 </p>
 
 ### Standup digest

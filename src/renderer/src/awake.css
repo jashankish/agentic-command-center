@@ -767,3 +767,17 @@
   margin: 0;
   color: #ffe2a3;
 }
+
+/* The health-bar Awake chip is a button that opens the popover. */
+.health-chip-btn {
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.health-chip-btn:hover {
+  background: var(--glass-strong);
+  border-color: var(--hairline);
+}

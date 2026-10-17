@@ -22,6 +22,8 @@ interface Props {
   agentsWaiting?: number
   /** Keep-awake session, shown as a chip while one runs. */
   awake?: AwakeState | null
+  /** Open the bottom-right awake popover (the Awake chip is clickable). */
+  onOpenAwake?: () => void
 }
 
 function nextEvent(calendar: CalendarData | null): string | null {
@@ -44,6 +46,8 @@ interface Chip {
   tone: 'red' | 'amber' | 'accent' | 'green' | 'muted'
   label: string
   title: string
+  /** Makes the chip a button (e.g. Awake opens the awake popover). */
+  onClick?: () => void
 }
 
 export default function HealthBar({
@@ -54,7 +58,8 @@ export default function HealthBar({
   system,
   calendar,
   agentsWaiting = 0,
-  awake = null
+  awake = null,
+  onOpenAwake
 }: Props): JSX.Element {
   const attention = statuses.filter((s) => deriveState(s).needsAttention).length
   const ciFail = Object.values(insights).filter((i) => i.ci === 'fail').length
@@ -124,14 +129,16 @@ export default function HealthBar({
       title:
         `Mac held awake until ${endLabel(ends)}` +
         (awake.mode === 'lid' ? ', lid closed included' : ' — only while the lid is open') +
-        ' (bottom-right corner to change)'
+        ' — click to add time or end',
+      onClick: onOpenAwake
     })
   } else if (awake?.restorePending) {
     chips.push({
       key: 'awake',
       tone: 'amber',
       label: 'Awake restore pending',
-      title: "An earlier awake session's changes are not all undone — open the corner awake panel"
+      title: "An earlier awake session's changes are not all undone — click to finish restoring",
+      onClick: onOpenAwake
     })
   }
 
@@ -155,10 +162,22 @@ export default function HealthBar({
         <span className="health-chip tone-muted">No repositories imported yet</span>
       ) : (
         chips.map((c) => (
-          <span key={c.key} className={`health-chip tone-${c.tone}`} title={c.title}>
-            <span className="health-dot" />
-            {c.label}
-          </span>
+          c.onClick ? (
+            <button
+              key={c.key}
+              className={`health-chip health-chip-btn tone-${c.tone}`}
+              title={c.title}
+              onClick={c.onClick}
+            >
+              <span className="health-dot" />
+              {c.label}
+            </button>
+          ) : (
+            <span key={c.key} className={`health-chip tone-${c.tone}`} title={c.title}>
+              <span className="health-dot" />
+              {c.label}
+            </span>
+          )
         ))
       )}
     </div>
