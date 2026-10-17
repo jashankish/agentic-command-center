@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import type { Inbox, CheckState } from '../../../shared/types'
 import { relFromIso } from '../lib/format'
 

@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import type { ClaudeActivity } from '../../../shared/types'
 import { fmtCost } from '../lib/format'
 

@@ -1,5 +1,7 @@
 // Minimal inline SVG icons (stroke = currentColor) for the toolbar and cards.
 
+import type { JSX } from 'react'
+
 interface IconProps {
   size?: number
 }

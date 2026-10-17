@@ -146,7 +146,7 @@ rest keeps working.
 | **Activity-feed AI summaries** | An Apple Silicon Mac on macOS 26+ with **Apple Intelligence** enabled — *optional*; without it the feed shows raw commit messages. |
 | **Awake sessions** | Nothing for the basic timer. To survive **closing the lid**, a one-time admin approval of the four-command `pmset` rule (**Set up…** in the popover). The tmux nudge needs [tmux](https://github.com/tmux/tmux) 3.0+; the agent-aware rules use the terminals panel's session detection. |
 | **Today's calendar event** | macOS Calendar with at least one account (grants an Automation prompt once). |
-| **Building from source** | Node.js ≥ 18 with npm (plus Xcode 26+ or its Command Line Tools to compile the on-device summarizer helper — optional). |
+| **Building from source** | Node.js ≥ 22.12 with npm (plus Xcode 26+ or its Command Line Tools to compile the on-device summarizer helper — optional). |
 
 Everything is **optional and independent** — missing `gh`, Claude Code, or Calendar only disables
 that specific panel, and without **Apple Intelligence** the activity feed simply shows raw commit
@@ -733,7 +733,8 @@ end, never exported). Awake sessions keep their recovery journal and backstop sc
 
 ## How it works (architecture)
 
-Stack: **Electron + React 18 + TypeScript**, bundled by **electron-vite**. Two runtime deps:
+Stack: **Electron 44 + React 19 + TypeScript**, bundled by **electron-vite 6** (Vite 8). Two runtime
+deps:
 `simple-git` (git) and `electron-store` (persistence). It runs in the standard three Electron
 contexts:
 
@@ -1196,7 +1197,7 @@ Yes by default — click the 📌 pin button in the toolbar to toggle it.
 | **Session states look wrong / two sessions show the same task** | That's the inferred mode's known blur for two sessions in one project — enable **exact states** in the panel footer. |
 | **Awake badge says "Lid open only"** | Lid-close access isn't set up — click **Set up…** in the awake popover (or ⚙ → Lid-close access) and approve the admin prompt. |
 | **Sleep stays disabled after a session** | Open the awake popover and click **Retry restore**, or run `sudo pmset -a disablesleep 0` in Terminal. |
-| **`npm run dev` dies at launch** ("Electron exited with signal SIGKILL", or `Electron.app` vanishes from `node_modules`) | Apple revoked the notarization of this Electron build, so macOS kills it. Run `npm run fix:electron` — it re-downloads the binary if needed and gives it a valid ad-hoc signature, as releases already get. |
+| **`npm run dev` dies at launch** ("Electron exited with signal SIGKILL", or `Electron.app` vanishes from `node_modules`) | macOS killed the dev Electron binary (this happens when Apple revokes an Electron build's notarization). Run `npm run fix:electron` — it re-downloads the binary if needed and gives it a valid ad-hoc signature, as releases already get. |
 | **"Open in editor" does nothing** | Install one of Cursor, VS Code, Zed, or Sublime Text. |
 
 ---

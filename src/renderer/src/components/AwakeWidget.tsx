@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AwakeConfig, AwakeState } from '../../../shared/types'
 import { IconEye, IconGear } from './icons'

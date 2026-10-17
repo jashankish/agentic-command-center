@@ -39,7 +39,7 @@ synthetic dataset via `npm run screenshots awake`).
 - **Battery**: `pmset -g batt` (`'Battery Power'`, `NN%`), polled every 60 s plus Electron
   `powerMonitor` `on-battery` / `on-ac`.
 - **Heat**: `powerMonitor` `thermal-state-change` (macOS); the state is read from the event's
-  details object (`{ state }`) since Electron 31 has no typed getter. `unknown` until the first event.
+  details object (`{ state }`), since Electron's typings expose no getter. `unknown` until the first event.
 - **Sleep bit**: `pmset -g` → `SleepDisabled 1` (absent when 0). **LPM**: the `Battery Power:`
   block of `pmset -g custom`.
 - **Access**: `sudo -n -l /usr/bin/pmset -a disablesleep 1` exits 0 when any sudoers rule allows it
@@ -126,7 +126,14 @@ Docker idle freeze rule.
   floors, journal + launchd backstop, agent auto-start / extension, tmux nudge, App Nap, browser
   unthrottling. First production run: a 5-hour lid-mode session in the installed app expired on
   schedule and restored sleep, Low Power Mode, and audio with a clean journal.
-- **v1.5.1** — post-release fixes found in use:
+- **v1.6.0** — everything in v1.5.1 below, on an updated stack: **Electron 44** (Node 24, Chromium
+  152), **React 19**, **Vite 8 / electron-vite 6**, **electron-store 12**, **simple-git 4**,
+  **TypeScript 7**, **electron-builder 26**. electron-store 12 is ESM-only, so it's bundled into the
+  CommonJS main build (`build.externalizeDeps.exclude`); existing settings files read unchanged.
+  Glass surfaces now use only the standard `backdrop-filter` — Vite 8's CSS minifier collapsed the
+  `-webkit-` duplicates into the prefixed form, which current Chromium ignores. Building needs
+  Node ≥ 22.12.
+- **v1.5.1** *(rolled into v1.6.0)* — post-release fixes found in use:
   - **Clamshell:** a closed lid with an external display no longer counts as "away" — no muting,
     freezing, Low Power, or display sleep while you work on the big screen (`c2b36c6`).
   - **Start guard:** no session starts below the battery end limit or at critical heat; the

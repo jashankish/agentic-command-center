@@ -1,17 +1,24 @@
 import { resolve } from 'path'
-import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
+import { defineConfig } from 'electron-vite'
 import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()]
+    build: {
+      // electron-store is ESM-only; bundle it (and its deps) into the CJS main
+      // bundle instead of require()-ing it at runtime.
+      externalizeDeps: { exclude: ['electron-store'] }
+    }
   },
   preload: {
-    plugins: [externalizeDepsPlugin()]
+    build: {
+      externalizeDeps: true
+    }
   },
   renderer: {
     root: 'src/renderer',
     build: {
+      minify: true,
       rollupOptions: {
         input: resolve(__dirname, 'src/renderer/index.html')
       }

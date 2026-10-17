@@ -1,11 +1,14 @@
 {
   "name": "agentic-command-center",
   "productName": "Agentic Command Center",
-  "version": "1.5.1",
+  "version": "1.6.0",
   "description": "An agentic development command center for your projects, Claude Code usage, and GitHub activity",
   "main": "./out/main/index.js",
   "author": "jashan",
   "license": "MIT",
+  "engines": {
+    "node": ">=22.12"
+  },
   "scripts": {
     "dev": "npm run build:helper && electron-vite dev",
     "build": "electron-vite build",
@@ -16,22 +19,22 @@
     "fix:electron": "bash scripts/fix-dev-electron.sh"
   },
   "dependencies": {
-    "electron-store": "^8.2.0",
-    "simple-git": "^3.25.0"
+    "electron-store": "^12.0.0",
+    "simple-git": "^4.0.2"
   },
   "devDependencies": {
-    "@types/node": "^20.14.0",
-    "@types/react": "^18.3.3",
-    "@types/react-dom": "^18.3.0",
-    "@vitejs/plugin-react": "^4.3.1",
-    "electron": "^31.3.0",
-    "electron-builder": "^24.13.3",
-    "electron-vite": "^2.3.0",
-    "playwright-core": "^1.60.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "typescript": "^5.5.4",
-    "vite": "^5.3.5"
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "electron": "^44.9.0",
+    "electron-builder": "^26.15.3",
+    "electron-vite": "^6.0.0",
+    "playwright-core": "^1.64.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4"
   },
   "build": {
     "appId": "com.jashan.agenticcommandcenter",

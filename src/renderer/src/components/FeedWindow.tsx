@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import { useCallback, useEffect, useState } from 'react'
 import type { CommitFeed, CommitFeedEntry } from '../../../shared/types'
 

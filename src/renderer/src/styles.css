@@ -201,7 +201,6 @@ body {
   background: var(--glass);
   border: 1px solid var(--hairline);
   backdrop-filter: blur(18px) saturate(160%);
-  -webkit-backdrop-filter: blur(18px) saturate(160%);
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   overflow: hidden;
   transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
@@ -710,7 +709,6 @@ body {
   background: var(--glass);
   border: 1px solid var(--hairline);
   backdrop-filter: blur(18px) saturate(160%);
-  -webkit-backdrop-filter: blur(18px) saturate(160%);
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   overflow: hidden;
   animation: tile-in 0.32s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
@@ -1253,7 +1251,6 @@ body {
   background: var(--glass-strong);
   border: 1px solid var(--hairline);
   backdrop-filter: blur(30px) saturate(180%);
-  -webkit-backdrop-filter: blur(30px) saturate(180%);
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.12);
   overflow: hidden;
 }
@@ -1316,7 +1313,6 @@ body {
   max-width: 460px;
   background: rgba(20, 22, 28, 0.97);
   backdrop-filter: blur(40px) saturate(180%);
-  -webkit-backdrop-filter: blur(40px) saturate(180%);
 }
 
 .discover-list {
@@ -1447,7 +1443,6 @@ body {
   max-height: min(82vh, 720px);
   background: rgba(20, 22, 28, 0.97);
   backdrop-filter: blur(40px) saturate(180%);
-  -webkit-backdrop-filter: blur(40px) saturate(180%);
 }
 
 .info-scroll {
@@ -1636,7 +1631,6 @@ body {
   inset: 0;
   background: rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1652,7 +1646,6 @@ body {
   background: var(--glass-strong);
   border: 1px solid var(--hairline);
   backdrop-filter: blur(30px) saturate(180%);
-  -webkit-backdrop-filter: blur(30px) saturate(180%);
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
