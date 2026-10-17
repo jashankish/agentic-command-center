@@ -43,6 +43,10 @@ const MIN_SESSION_S = 60
 /** Agent-aware extension: step size and the most it may add in total. */
 const AGENT_STEP_S = 15 * 60
 const AGENT_CAP_S = 12 * 3600
+/** Length of a session the agent watcher starts (then agent-extended). */
+const AUTO_START_S = 30 * 60
+/** How often the agent watcher looks for working Claude sessions. */
+const AUTO_WATCH_MS = 60_000
 /** An outage at least this long earns marked tmux panes a `continue`. */
 const NUDGE_AFTER_MS = 90_000
 
@@ -941,7 +945,7 @@ function releaseAssertion(): void {
   blockerId = null
 }
 
-export function startSession(seconds: number): Promise<AwakeState> {
+export function startSession(seconds: number, auto = false): Promise<AwakeState> {
   return exclusive(async () => {
     if (J().session) return extendNow(seconds)
     if (runtimeDirty(J().runtime)) await restore()
@@ -952,7 +956,8 @@ export function startSession(seconds: number): Promise<AwakeState> {
       id: randomUUID(),
       startedAt: new Date(now).toISOString(),
       endsAt: new Date(now + secs * 1000).toISOString(),
-      extendedBy: []
+      extendedBy: [],
+      ...(auto ? { auto: true } : {})
     }
     await checkLidReady()
     let mode: AwakeMode = live.lidReady ? 'lid' : 'assertion'
@@ -1053,7 +1058,8 @@ function expire(): Promise<AwakeState> {
     const s = J().session
     if (!s || Date.now() < new Date(s.endsAt).getTime()) return getAwakeState()
     const auto = (s.autoExtendedBy ?? []).reduce((a, b) => a + b, 0)
-    if (getAwakeConfig().extendWhileAgentsWork && auto < AGENT_CAP_S) {
+    // An auto-started session exists for the agents, so it always follows them.
+    if ((getAwakeConfig().extendWhileAgentsWork || s.auto) && auto < AGENT_CAP_S) {
       live.agentsWorking = await countWorkingAgents()
       if (live.agentsWorking > 0) {
         const step = Math.min(AGENT_STEP_S, AGENT_CAP_S - auto)
@@ -1125,6 +1131,8 @@ async function endNow(reason: AwakeEndReason): Promise<AwakeState> {
   const complete = await restore()
   if (complete) await disarmBackstop().catch(() => undefined)
   live.foreignSleepHold = false
+  // Ended by hand: don't auto-start again until the agents have gone idle.
+  if (had && reason === 'user') autoSuppressed = true
   if (had) {
     live.lastEnd = { at: new Date().toISOString(), reason }
     const why: Record<AwakeEndReason, string> = {
@@ -1144,6 +1152,35 @@ async function endNow(reason: AwakeEndReason): Promise<AwakeState> {
   }
   push()
   return getAwakeState()
+}
+
+// ---------- agent watcher (auto-start) ----------
+
+let autoSuppressed = false
+
+/** With "start automatically when agents work" on and no session running,
+ *  start a 30-minute session once a Claude session is working; it then
+ *  extends while they keep working. Ending it by hand stands until every
+ *  agent has gone idle, so the watcher never fights the user. */
+async function autoStartTick(): Promise<void> {
+  if (!getAwakeConfig().autoStartWithAgents) {
+    autoSuppressed = false
+    return
+  }
+  const n = await countWorkingAgents()
+  if (n === 0) {
+    autoSuppressed = false
+    return
+  }
+  if (autoSuppressed || J().session || runtimeDirty(J().runtime)) return
+  live.agentsWorking = n
+  await startSession(AUTO_START_S, true)
+  if (J().session) {
+    notify(
+      'Keeping your Mac awake',
+      `${n} Claude session${n === 1 ? ' is' : 's are'} working — awake until they finish (up to 12 hours).`
+    )
+  }
 }
 
 export function dismissAwakeWarnings(): AwakeState {
@@ -1221,6 +1258,8 @@ export async function initAwake(): Promise<void> {
   } else if (s || runtimeDirty(journal.runtime)) {
     await endSession('recovered')
   }
+
+  setInterval(() => void autoStartTick().catch(() => undefined), AUTO_WATCH_MS)
 
   app.on('before-quit', (e) => {
     if (quitting) return

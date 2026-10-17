@@ -398,6 +398,9 @@ export interface AwakeConfig {
   /** When the timer runs out while a Claude session is still working, add
    *  15 minutes at a time (up to 12 hours in total) instead of ending. */
   extendWhileAgentsWork: boolean
+  /** With no session running, start one (30 min, then extended while agents
+   *  work) as soon as a Claude session starts working. */
+  autoStartWithAgents: boolean
   /** After a network outage of 90 s or more, type `continue` into tmux panes
    *  marked `@insomnia-nudge on`, so a stalled agent retries. */
   tmuxNudge: boolean
@@ -425,6 +428,8 @@ export interface AwakeSession {
   extendedBy: number[]
   /** Seconds added automatically because agents were still working. */
   autoExtendedBy?: number[]
+  /** Started by the agent watcher rather than by hand. */
+  auto?: boolean
 }
 
 /** An App Nap override to undo: the app's `NSAppSleepDisabled` before the

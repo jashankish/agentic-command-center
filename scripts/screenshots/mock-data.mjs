@@ -268,7 +268,7 @@ export function buildData() {
       config: {
         darkenDisplayOnLidClose: true, muteOnLidClose: true, lowPowerOnLidClose: true,
         freezeList: ['com.tinyspeck.slackmacgap', 'net.whatsapp.WhatsApp', 'com.hnc.Discord'],
-        lowPowerFloor: 40, endFloor: 10, thermalRules: true, extendWhileAgentsWork: true,
+        lowPowerFloor: 40, endFloor: 10, thermalRules: true, extendWhileAgentsWork: true, autoStartWithAgents: true,
         tmuxNudge: true, tmuxNudgePressesEnter: false, disableAppNapForAgents: true
       },
       freezeApps: [

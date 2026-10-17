@@ -103,6 +103,8 @@ rest keeps working.
   four-command sudoers rule); without it, sessions still hold while the lid is open.
 - **Lid-close actions**: sleep the display, mute audio, Low Power Mode, and **freeze** chat apps
   (Slack, WhatsApp, Discord by default) — all undone when the lid opens.
+- **Start automatically when agents work** (opt-in) — no session running and a Claude session
+  starts working? A 30-minute session starts on its own and follows the agents until they're idle.
 - **Stay awake while agents work** (opt-in) — if the timer runs out while a Claude session in the
   terminals panel is still mid-turn, the session keeps going 15 minutes at a time (12 h cap).
 - **App Nap off for agent apps** (opt-in) — terminals, editors, and agent apps stay unthrottled for
@@ -494,6 +496,13 @@ by **15 minutes** instead of ending, re-checking each time, up to **12 hours** o
 notification says so the first time. The countdown notes *+Nm for agents* and a tag shows how many
 agents are working. Sessions waiting on you (permission / your turn) don't count — only real work.
 
+**Start automatically when agents work** — the hands-off version, under ⚙ → *Agents*. With no
+session running, the app checks every minute; as soon as a Claude session is **working** it starts
+a **30-minute** session (*started for agents* under the countdown, plus a notification) that always
+follows the agents — extending 15 minutes at a time while any is still working, up to 12 hours, then
+ending once they're idle. It's still a timed session, never an open-ended toggle. If you end one by
+hand, that stands: it won't start again until every agent has gone idle first.
+
 **Keep agent apps out of App Nap** — an opt-in rule under ⚙ → *Agents*. For the length of a
 session it sets `NSAppSleepDisabled` for each **installed** agent app — Terminal, iTerm2, Ghostty,
 Warp, VS Code, Cursor, Zed, Antigravity, Claude, ChatGPT/Codex, T3 Code, Conductor, Chrome/Chromium/
@@ -542,7 +551,7 @@ an *expired* session's changes if the app has crashed, then removes itself.
 
 <p align="center">
   <img src="docs/screenshot-awake.png" alt="The awake popover over the bottom-right corner pill: a 02:48:00 countdown until 8:10 PM with +1h added, a gradient progress bar, +15m/+30m/+1h/+2h/+… add-time chips, lid, battery, and agents-working status tags, a notice offering to relaunch Google Chrome unthrottled, a Lid-close safe badge, and the press-and-hold end control" width="300" />
-  <img src="docs/screenshot-awake-settings.png" alt="Awake settings: Stay awake while agents work and Keep agent apps out of App Nap toggles; a toggle to type continue into marked tmux panes after a network outage, with the pane-mark command; toggles to sleep the display, mute audio, and turn on Low Power Mode when the lid closes; a freeze list with Slack, WhatsApp, and Discord; battery floors at 40% and 10%; heat rules; and the lid-close access status" width="300" />
+  <img src="docs/screenshot-awake-settings.png" alt="Awake settings: Start automatically when agents work, Stay awake while agents work, and Keep agent apps out of App Nap toggles; a toggle to type continue into marked tmux panes after a network outage, with the pane-mark command; toggles to sleep the display, mute audio, and turn on Low Power Mode when the lid closes; a freeze list with Slack, WhatsApp, and Discord; battery floors at 40% and 10%; heat rules; and the lid-close access status" width="300" />
 </p>
 
 ---
@@ -1040,7 +1049,8 @@ switches Low Power Mode off, unmutes, and resumes frozen apps. Relaunching the a
 immediately for an expired session, or picks a running one back up.
 
 **Can a session last exactly as long as my agents take?**
-Turn on **Stay awake while agents work** (⚙ → Agents) and start a short session. When it runs out
+Turn on **Start automatically when agents work** (⚙ → Agents) and you don't even have to start
+one. Or turn on **Stay awake while agents work** and start a short session yourself. When it runs out
 while a Claude session is still mid-turn, it extends 15 minutes at a time (up to 12 hours extra)
 and ends on its own once every session is idle or waiting on you.
 

@@ -18,6 +18,7 @@ const DEFAULT_AWAKE_CONFIG: AwakeConfig = {
   endFloor: 10,
   thermalRules: true,
   extendWhileAgentsWork: false,
+  autoStartWithAgents: false,
   tmuxNudge: false,
   tmuxNudgePressesEnter: false,
   disableAppNapForAgents: false

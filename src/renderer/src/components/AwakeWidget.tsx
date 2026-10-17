@@ -270,6 +270,12 @@ function SettingsView({
         onChange={(v) => set({ extendWhileAgentsWork: v })}
       />
       <Toggle
+        on={c.autoStartWithAgents}
+        label="Start automatically when agents work"
+        hint="With no session running, a working Claude session starts one (30 min, extended while agents keep working, up to 12 hours). Ending it by hand waits for the agents to go idle before it can start again."
+        onChange={(v) => set({ autoStartWithAgents: v })}
+      />
+      <Toggle
         on={c.disableAppNapForAgents}
         label="Keep agent apps out of App Nap"
         hint="Sets NSAppSleepDisabled for installed terminals, editors and agent apps during a session and puts each previous value back afterwards. Applies to apps launched while it's on."
@@ -573,6 +579,7 @@ export default function AwakeWidget({ state, open, onOpenChange }: Props): JSX.E
                     until {endLabel(new Date(endsAt), new Date(now))}
                     {session.extendedBy.length > 0 &&
                       ` · +${shortDuration(session.extendedBy.reduce((a, b) => a + b, 0))} added`}
+                    {session.auto && ' · started for agents'}
                     {(session.autoExtendedBy?.length ?? 0) > 0 &&
                       ` · +${shortDuration((session.autoExtendedBy ?? []).reduce((a, b) => a + b, 0))} for agents`}
                   </div>
