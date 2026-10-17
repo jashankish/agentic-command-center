@@ -576,7 +576,8 @@ Claude, ChatGPT/Codex, T3 Code, Conductor, Chrome/Chromium/Arc, Docker Desktop, 
 Studio, Ollama — so macOS's App Nap can't slow them while they're in the background. Each app's
 previous value (set, unset, or absent) is journaled *before* the write, apps already opted out are
 left alone, and the value is put back when the session ends (the crash backstop does it too). macOS
-reads the key at launch, so it applies to apps opened during the session. Off, the app never writes
+reads the key at launch, so it applies to apps opened during the session; switching the rule on or
+off mid-session applies or restores it at once. Off, the app never writes
 another app's preferences.
 
 **After a network outage** — if the network drops during a session (an amber *Offline* tag shows
