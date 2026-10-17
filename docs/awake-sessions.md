@@ -132,6 +132,10 @@ Docker idle freeze rule.
   - **Keyboard:** hold Space / Enter on the focused end control to end a session (`f89def1`).
   - **Settings export / import** carries the awake configuration, sanitised on import (`2d64c77`).
   - **Test hooks** for battery, heat and external display; every floor verified live (`247894b`).
+  - **Settings apply mid-session:** toggling App Nap holds / restores it at once (`96663b9`); with
+    the lid shut, toggling *Mute audio* mutes / unmutes and editing the freeze list freezes /
+    resumes immediately (`updateAwakeConfig()`, `resumeFrozen(keep)`).
+  - Dev: `npm run fix:electron` re-signs the revoked dev Electron (`5987d3f`).
 
 - **Live-tested** in the real app (CDP-driven, throwaway profile, `ACC_SIMULATE_LID`): UI start,
   hold-to-end (200 ms ignored, 900 ms ends), lid close/open (mute + SIGSTOP, then restore),

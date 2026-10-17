@@ -651,10 +651,11 @@ async function freezeApps(config: AwakeConfig): Promise<void> {
 }
 
 /** Resume only processes whose start time still matches what was frozen. */
-async function resumeFrozen(): Promise<void> {
+async function resumeFrozen(keep: (f: FrozenProcess) => boolean = () => false): Promise<void> {
   const j = J()
-  if (j.runtime.frozen.length === 0) return
-  for (const f of j.runtime.frozen) {
+  const toResume = j.runtime.frozen.filter((f) => !keep(f))
+  if (toResume.length === 0) return
+  for (const f of toResume) {
     if ((await processStart(f.pid)) === f.startedAt) {
       try {
         process.kill(f.pid, 'SIGCONT')
@@ -664,7 +665,7 @@ async function resumeFrozen(): Promise<void> {
     }
   }
   const k = J()
-  await writeJournal({ ...k, runtime: { ...k.runtime, frozen: [] } })
+  await writeJournal({ ...k, runtime: { ...k.runtime, frozen: k.runtime.frozen.filter(keep) } })
 }
 
 async function muteForLid(): Promise<void> {
@@ -1289,6 +1290,16 @@ export async function updateAwakeConfig(patch: Partial<AwakeConfig>): Promise<Aw
       // Flipping the App Nap rule mid-session takes effect now, not next session.
       if (config.disableAppNapForAgents) await holdAppNap().catch(() => undefined)
       else if (J().runtime.appNap.length > 0) await releaseAppNap().catch(() => undefined)
+      // Likewise lid-close settings while the lid is shut: mute / unmute, and
+      // resume apps taken off the freeze list or freeze ones added to it.
+      const away =
+        live.lidClosed && !live.clamshell && (J().mode === 'lid' || !!process.env.ACC_SIMULATE_LID)
+      if (away) {
+        if (config.muteOnLidClose) await muteForLid().catch(() => undefined)
+        else await unmute().catch(() => undefined)
+        await resumeFrozen((f) => config.freezeList.includes(f.bundleId)).catch(() => undefined)
+        await freezeApps(config).catch(() => undefined)
+      }
       await evaluateFloors()
     })
   }

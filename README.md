@@ -550,6 +550,8 @@ apply; plug it back in (or open the lid) and they're undone.
 - the **display sleeps** (best effort — with sleep disabled macOS no longer does it itself),
 - audio is **muted** (and unmuted on open only if it was unmuted before),
 - **Low Power Mode** turns on (off again on open unless a battery/heat rule still wants it),
+- changing these settings while the lid is shut applies at once — unticking *Mute audio* unmutes,
+  removing an app from the freeze list resumes it, adding one freezes it,
 - apps on the **freeze list** are paused with `SIGSTOP` — the whole bundle, helpers included — and
   resumed with `SIGCONT`. Each pid is journaled with its start time first, and only a process whose
   start time still matches is ever resumed. Agent hosts, terminals, editors, and `com.apple.*` apps
