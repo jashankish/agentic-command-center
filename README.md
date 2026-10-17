@@ -919,6 +919,8 @@ npm run dev        # launch Electron with a hot-reloading renderer
 | `npm run build` | Type-safe build of main/preload/renderer to `out/` |
 | `npm run preview` | Preview the production build |
 | `npm run dist` | Build **and** package a macOS `.dmg` into `dist/` |
+| `npm run screenshots [filter]` | Regenerate the README screenshots from synthetic data (see [`scripts/screenshots/`](scripts/screenshots)) |
+| `npm run fix:electron` | Re-sign (and if needed re-download) the dev Electron binary when macOS kills it on launch |
 
 TypeScript is strict; `npx tsc --noEmit` type-checks the whole project (electron-vite/Vite do the
 actual bundling).
@@ -1184,6 +1186,7 @@ Yes by default — click the 📌 pin button in the toolbar to toggle it.
 | **Session states look wrong / two sessions show the same task** | That's the inferred mode's known blur for two sessions in one project — enable **exact states** in the panel footer. |
 | **Awake badge says "Lid open only"** | Lid-close access isn't set up — click **Set up…** in the awake popover (or ⚙ → Lid-close access) and approve the admin prompt. |
 | **Sleep stays disabled after a session** | Open the awake popover and click **Retry restore**, or run `sudo pmset -a disablesleep 0` in Terminal. |
+| **`npm run dev` dies at launch** ("Electron exited with signal SIGKILL", or `Electron.app` vanishes from `node_modules`) | Apple revoked the notarization of this Electron build, so macOS kills it. Run `npm run fix:electron` — it re-downloads the binary if needed and gives it a valid ad-hoc signature, as releases already get. |
 | **"Open in editor" does nothing** | Install one of Cursor, VS Code, Zed, or Sublime Text. |
 
 ---

@@ -12,7 +12,8 @@
     "build:helper": "bash scripts/build-helper.sh",
     "preview": "electron-vite preview",
     "dist": "npm run build:helper && electron-vite build && electron-builder --mac",
-    "screenshots": "node scripts/screenshots/capture.mjs"
+    "screenshots": "node scripts/screenshots/capture.mjs",
+    "fix:electron": "bash scripts/fix-dev-electron.sh"
   },
   "dependencies": {
     "electron-store": "^8.2.0",
