@@ -258,7 +258,7 @@ export function buildData() {
     panelPrefs: { notifyPermission: true, notifyInput: false, notifyStale: true, showPlainTerminals: true },
     // No session yet and lid-close access not set up: the start view a new user sees.
     awakeIdle: {
-      session: null, mode: null, lidReady: false, ruleOwned: false, lidClosed: false,
+      session: null, mode: null, lidReady: false, ruleOwned: false, lidClosed: false, clamshell: false,
       onBattery: true, batteryPercent: 78, thermal: 'nominal',
       lowPowerByUs: false, mutedByUs: false, frozen: [], foreignSleepHold: false, warnings: [],
       config: {
@@ -282,7 +282,7 @@ export function buildData() {
         id: 'awake-demo', startedAt: ago(72 * MIN),
         endsAt: new Date(Date.now() + 168 * MIN).toISOString(), extendedBy: [3600], autoExtendedBy: []
       },
-      mode: 'lid', lidReady: true, ruleOwned: true, lidClosed: false,
+      mode: 'lid', lidReady: true, ruleOwned: true, lidClosed: false, clamshell: false,
       onBattery: true, batteryPercent: 78, thermal: 'nominal',
       lowPowerByUs: false, mutedByUs: false, frozen: [], foreignSleepHold: false, warnings: [],
       config: {

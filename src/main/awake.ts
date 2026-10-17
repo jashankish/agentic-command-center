@@ -1,4 +1,4 @@
-import { app, BrowserWindow, net, Notification, powerMonitor, powerSaveBlocker } from 'electron'
+import { app, BrowserWindow, net, Notification, powerMonitor, powerSaveBlocker, screen } from 'electron'
 import { execFile } from 'child_process'
 import { existsSync } from 'fs'
 import { chmod, mkdir, readFile, rename, rm, writeFile } from 'fs/promises'
@@ -167,6 +167,32 @@ async function readLidClosed(): Promise<boolean> {
   return /"AppleClamshellState"\s*=\s*Yes/.test(r.stdout)
 }
 
+/** An external display is attached. Test hook: ACC_SIMULATE_DISPLAY=<file>
+ *  reads `external` / `internal` from the file instead. */
+async function hasExternalDisplay(): Promise<boolean> {
+  const simulated = process.env.ACC_SIMULATE_DISPLAY
+  if (simulated) {
+    try {
+      return (await readFile(simulated, 'utf8')).trim() === 'external'
+    } catch {
+      return false
+    }
+  }
+  try {
+    return screen.getAllDisplays().some((d) => !d.internal)
+  } catch {
+    return false
+  }
+}
+
+/** Lid state plus whether nobody is at the Mac: a closed lid with an external
+ *  display attached is clamshell use, not "walked away". */
+async function readLid(): Promise<{ closed: boolean; clamshell: boolean; away: boolean }> {
+  const closed = await readLidClosed()
+  const clamshell = closed && (await hasExternalDisplay())
+  return { closed, clamshell, away: closed && !clamshell }
+}
+
 async function isMuted(): Promise<boolean | null> {
   const r = await run('/usr/bin/osascript', ['-e', 'output muted of (get volume settings)'], 5000)
   if (!r.ok) return null
@@ -274,6 +300,8 @@ const live = {
   warnings: [] as string[],
   lastEnd: null as AwakeState['lastEnd'],
   agentsWorking: 0,
+  /** Lid closed with an external display: in use, so lid actions are skipped. */
+  clamshell: false,
   offlineSince: null as number | null,
   throttledBrowsers: [] as ThrottledBrowser[]
 }
@@ -359,6 +387,7 @@ export function getAwakeState(): AwakeState {
     lidReady: live.lidReady,
     ruleOwned: existsSync(SUDOERS_FILE),
     lidClosed: live.lidClosed,
+    clamshell: live.clamshell,
     onBattery: live.onBattery,
     batteryPercent: live.batteryPercent,
     thermal: live.thermal,
@@ -708,7 +737,7 @@ async function evaluateFloors(): Promise<void> {
     return
   }
   const want =
-    (live.lidClosed && c.lowPowerOnLidClose) ||
+    (live.lidClosed && !live.clamshell && c.lowPowerOnLidClose) ||
     (live.onBattery && pct !== null && pct < c.lowPowerFloor) ||
     (c.thermalRules && live.thermal === 'serious')
   await setLowPower(want).catch(() => undefined)
@@ -871,13 +900,17 @@ async function pollNetwork(): Promise<void> {
 function startMonitors(): void {
   stopMonitors()
   lidTimer = setInterval(() => {
-    void readLidClosed().then((closed) => {
-      if (closed === live.lidClosed) return
+    void readLid().then(({ closed, clamshell, away }) => {
+      const wasAway = live.lidClosed && !live.clamshell
+      if (closed === live.lidClosed && clamshell === live.clamshell) return
       live.lidClosed = closed
+      live.clamshell = clamshell
       void exclusive(async () => {
         if (!J().session) return
-        if (closed) await onLidClosed()
-        else await onLidOpened()
+        // Plugging in or unplugging an external display with the lid shut
+        // flips between "in use" and "away" just like opening the lid.
+        if (away && !wasAway) await onLidClosed()
+        else if (!away && wasAway) await onLidOpened()
         push()
       })
     })
@@ -1006,12 +1039,14 @@ export function startSession(seconds: number, auto = false): Promise<AwakeState>
       warn('The crash-recovery backstop could not be armed; keep the app open until the session ends.')
     )
     if (getAwakeConfig().disableAppNapForAgents) await holdAppNap().catch(() => undefined)
-    live.lidClosed = await readLidClosed()
+    const lid = await readLid()
+    live.lidClosed = lid.closed
+    live.clamshell = lid.clamshell
     const b = await readBattery()
     live.onBattery = b.onBattery
     live.batteryPercent = b.percent
     startMonitors()
-    if (live.lidClosed) await onLidClosed()
+    if (lid.away) await onLidClosed()
     else await evaluateFloors()
     push()
     return getAwakeState()
@@ -1245,7 +1280,9 @@ export async function initAwake(): Promise<void> {
   const b = await readBattery()
   live.onBattery = b.onBattery
   live.batteryPercent = b.percent
-  live.lidClosed = await readLidClosed()
+  const lid = await readLid()
+  live.lidClosed = lid.closed
+  live.clamshell = lid.clamshell
 
   const s = journal.session
   if (s && new Date(s.endsAt).getTime() > Date.now()) {
@@ -1254,7 +1291,8 @@ export async function initAwake(): Promise<void> {
     holdAssertion()
     await armBackstop().catch(() => undefined)
     startMonitors()
-    if (!live.lidClosed) await exclusive(onLidOpened).catch(() => undefined)
+    // Not away (lid open, or clamshell in use): undo any lid-close actions.
+    if (!lid.away) await exclusive(onLidOpened).catch(() => undefined)
   } else if (s || runtimeDirty(journal.runtime)) {
     await endSession('recovered')
   }

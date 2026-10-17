@@ -462,6 +462,9 @@ export interface AwakeState {
   /** Whether the rule is the one this app installed (and can remove). */
   ruleOwned: boolean
   lidClosed: boolean
+  /** Lid closed but an external display is attached — the Mac is in use, so
+   *  lid-close actions are skipped. */
+  clamshell: boolean
   onBattery: boolean
   batteryPercent: number | null
   thermal: 'nominal' | 'fair' | 'serious' | 'critical' | 'unknown'

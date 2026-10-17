@@ -623,9 +623,18 @@ export default function AwakeWidget({ state, open, onOpenChange }: Props): JSX.E
                   )}
 
                   <div className="awake-status">
-                    <span className={`awake-stat ${state.lidClosed ? 'on' : ''}`}>
-                      Lid {state.lidClosed ? 'closed' : 'open'}
-                    </span>
+                    {state.clamshell ? (
+                      <span
+                        className="awake-stat"
+                        title="Lid closed with an external display — you're using the Mac, so lid-close actions are skipped"
+                      >
+                        Clamshell
+                      </span>
+                    ) : (
+                      <span className={`awake-stat ${state.lidClosed ? 'on' : ''}`}>
+                        Lid {state.lidClosed ? 'closed' : 'open'}
+                      </span>
+                    )}
                     {state.batteryPercent !== null && (
                       <span className={`awake-stat ${state.onBattery ? 'warm' : ''}`}>
                         {state.onBattery ? 'Battery' : 'Plugged in'} {state.batteryPercent}%

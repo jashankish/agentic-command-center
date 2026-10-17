@@ -19,6 +19,7 @@ synthetic dataset via `npm run screenshots awake`).
 | Running | Live clock, "until <time>", progress bar, add-time chips (+15m +30m +1h +2h, `+…` custom), status tags, hold-to-end (0.6 s ring; release / slide off cancels; holding Space or Enter on the focused control does the same, keyup / blur cancels). |
 | Sleep hold | `sudo -n pmset -a disablesleep 1` when the sudoers rule exists (`mode: 'lid'`), always plus `powerSaveBlocker('prevent-app-suspension')`. Without the rule: assertion only (`mode: 'assertion'`, "Lid open only"). |
 | Health bar | `Awake · <countdown>` chip while a session runs (accent = `lid`, amber = `assertion`); `Awake restore pending` when `restorePending`. |
+| Clamshell | `readLid()` = `AppleClamshellState` + `hasExternalDisplay()` (Electron `screen.getAllDisplays()` has a `!internal` display; test hook `ACC_SIMULATE_DISPLAY=<file>` reads `external`/`internal`). A closed lid **with** an external display is `clamshell` (in use): lid actions are skipped and Low Power on lid close isn't wanted. The 2 s poll acts on transitions of *away* (= closed && !clamshell), so plugging/unplugging a display with the lid shut behaves like opening/closing it. On relaunch, a session that isn't away has its lid actions undone. |
 | Lid close | Only in `lid` mode (or under `ACC_SIMULATE_LID`) — in assertion mode the Mac sleeps on close anyway. Sleep the display (`pmset displaysleepnow`, best effort), mute (osascript), Low Power Mode (`pmset -b lowpowermode 1`), SIGSTOP the freeze list. Lid open undoes all of it. |
 | Agents | Opt-in `extendWhileAgentsWork`: at expiry, if the terminals snapshot shows any Claude session in `working`, extend 15 min (`autoExtendedBy`), capped at 12 h total; first extension notifies. Waiting states (`permission`, `input`) don't count. |
 | Auto-start | Opt-in `autoStartWithAgents`: `autoStartTick()` every 60 s (armed in `initAwake`) — no session, clean runtime, ≥ 1 working agent, not suppressed → `startSession(30 min, auto = true)` + notification. `session.auto` sessions always take the agent-extension path in `expire()`. Ending any session with reason `user` sets `autoSuppressed` until a tick sees zero working agents. The renderer can't set `auto` (IPC passes only seconds). |
@@ -131,6 +132,11 @@ Docker idle freeze rule.
   250 ms did not; mouse hold unchanged. These test sessions ran while the user's installed v1.5.0
   app held a real lid-mode session: each found `SleepDisabled 1` already set, took it as a shared
   hold without claiming it, and ending them left the user's sleep hold and Low Power Mode intact.
+- **Clamshell, live (2026-10-17):** found because the user's own v1.5.0 session muted audio and
+  turned on Low Power Mode while they worked on an external display with the lid shut. Fixed and
+  verified: simulated lid closed + external → nothing frozen; display unplugged → sleeper frozen;
+  plugged back in → resumed; and with no simulation at all, the user's real closed lid + external
+  monitor read `clamshell=true` with nothing frozen.
 - **Testing hooks**: `ACC_SIMULATE_LID=<file>` — the lid reads closed while the file says `closed`;
   `ACC_SIMULATE_OFFLINE=<file>` — the network reads down while it says `offline`;
   `ACC_TMUX_BIN=<path>` — a stand-in tmux. The nudge was verified against a logging fake tmux:

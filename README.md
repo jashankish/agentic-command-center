@@ -498,7 +498,7 @@ command center, plus agent-aware rules of its own.
   red ring draws for 0.6 s and only a completed ring ends it, so a stray click or keypress can't
   kill a session. **End awake session** in the ⌘K
   palette works too, and quitting the app ends the session first.
-- **Status tags** — lid open/closed, battery % (or *Plugged in*), agents working, *Offline* during a
+- **Status tags** — lid open/closed (or *Clamshell*), battery % (or *Plugged in*), agents working, *Offline* during a
   network outage, and what the session currently holds (*Low Power*, *Muted*, *N apps frozen*,
   *App Nap off · N*, *Hot*).
 - **Badge** — **Lid-close safe** (green) when closing the lid won't sleep the Mac; **Lid open
@@ -543,7 +543,10 @@ away. Without it, a power assertion keeps the Mac awake while the lid is open.
 
 During a lid-close-safe session (each toggleable under ⚙, all undone on open; the timer keeps
 running and opening the lid doesn't end the session — in *lid open only* mode the Mac simply
-sleeps, so none of these run):
+sleeps, so none of these run). **Clamshell use is exempt:** with an external display attached, a
+closed lid means you're working on the big screen, so nothing is muted, frozen, slowed, or
+darkened — a *Clamshell* tag says so. Unplug the display with the lid still shut and the actions
+apply; plug it back in (or open the lid) and they're undone.
 - the **display sleeps** (best effort — with sleep disabled macOS no longer does it itself),
 - audio is **muted** (and unmuted on open only if it was unmuted before),
 - **Low Power Mode** turns on (off again on open unless a battery/heat rule still wants it),
