@@ -123,6 +123,9 @@ const api = {
     input: string
   ): Promise<{ bundleId: string; name: string } | { error: string }> =>
     ipcRenderer.invoke('awake:resolveApp', input),
+  // Quit + reopen a Chromium browser with the unthrottling flags (confirmed in the UI).
+  relaunchAwakeBrowser: (bundleId: string): Promise<AwakeState> =>
+    ipcRenderer.invoke('awake:relaunchBrowser', bundleId),
   onAwakeUpdate: (cb: (state: AwakeState) => void): (() => void) => {
     const handler = (_e: unknown, state: AwakeState): void => cb(state)
     ipcRenderer.on('awake:update', handler)

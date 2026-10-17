@@ -8,6 +8,7 @@ import { randomUUID } from 'crypto'
 import { getAwakeConfig, setAwakeConfig, listRepos } from './store'
 import { getTerminals } from './terminals'
 import { nudgeMarkedPanes } from './tmux'
+import { relaunchUnthrottled, scanThrottledBrowsers, type ThrottledBrowser } from './browsers'
 import type {
   AwakeConfig,
   AwakeEndReason,
@@ -266,7 +267,8 @@ const live = {
   warnings: [] as string[],
   lastEnd: null as AwakeState['lastEnd'],
   agentsWorking: 0,
-  offlineSince: null as number | null
+  offlineSince: null as number | null,
+  throttledBrowsers: [] as ThrottledBrowser[]
 }
 
 function exclusive<T>(fn: () => Promise<T>): Promise<T> {
@@ -357,7 +359,8 @@ export function getAwakeState(): AwakeState {
     lastEnd: live.lastEnd,
     restorePending: !j.session && runtimeDirty(j.runtime),
     agentsWorking: live.agentsWorking,
-    offlineSince: live.offlineSince ? new Date(live.offlineSince).toISOString() : null
+    offlineSince: live.offlineSince ? new Date(live.offlineSince).toISOString() : null,
+    throttledBrowsers: live.throttledBrowsers
   }
 }
 
@@ -681,6 +684,25 @@ async function evaluateFloors(): Promise<void> {
   await setLowPower(want).catch(() => undefined)
 }
 
+// ---------- browser throttling ----------
+
+async function rescanBrowsers(): Promise<void> {
+  const found = await scanThrottledBrowsers().catch(() => live.throttledBrowsers)
+  const changed = JSON.stringify(found) !== JSON.stringify(live.throttledBrowsers)
+  live.throttledBrowsers = found
+  if (changed) push()
+}
+
+/** Quit and reopen a browser with the unthrottling flags (the popover has
+ *  already asked). Anything that stopped it shows as a warning. */
+export async function relaunchBrowser(bundleId: string): Promise<AwakeState> {
+  const problem = await relaunchUnthrottled(bundleId)
+  if (problem) warn(problem)
+  await rescanBrowsers()
+  push()
+  return getAwakeState()
+}
+
 // ---------- network outage → tmux nudge ----------
 
 async function isOnline(): Promise<boolean> {
@@ -744,6 +766,7 @@ function startMonitors(): void {
   netTimer = setInterval(() => void pollNetwork(), 5000)
   batteryTimer = setInterval(() => {
     void pollBattery()
+    void rescanBrowsers()
     // Keep the "agents working" tag fresh while the agent rule is on.
     if (getAwakeConfig().extendWhileAgentsWork) {
       void countWorkingAgents().then((n) => {
@@ -1037,6 +1060,7 @@ export async function refreshAwake(): Promise<AwakeState> {
   const b = await readBattery()
   live.onBattery = b.onBattery
   live.batteryPercent = b.percent
+  await rescanBrowsers()
   push()
   return getAwakeState()
 }

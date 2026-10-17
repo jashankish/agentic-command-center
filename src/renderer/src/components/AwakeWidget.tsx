@@ -384,6 +384,55 @@ function SettingsView({
   )
 }
 
+/** Chromium browsers throttle hidden windows — every window, once the lid is
+ *  closed. Offer a relaunch with the flags that stop it, confirmed inline
+ *  because it quits the browser. */
+function BrowserThrottleCard({ browsers }: { browsers: AwakeState['throttledBrowsers'] }): JSX.Element {
+  const [confirm, setConfirm] = useState<string | null>(null)
+  const [busy, setBusy] = useState<string | null>(null)
+  const relaunch = async (id: string): Promise<void> => {
+    setBusy(id)
+    setConfirm(null)
+    await window.api.relaunchAwakeBrowser(id)
+    setBusy(null)
+  }
+  return (
+    <div className="awake-browsers">
+      {browsers.map((b) =>
+        confirm === b.bundleId ? (
+          <div key={b.bundleId} className="awake-browser confirm">
+            <p>
+              Quit and relaunch {b.name}? Windows and tabs come back only if {b.name} reopens them on
+              startup.
+            </p>
+            <div className="awake-warn-actions">
+              <button className="term-btn primary" onClick={() => void relaunch(b.bundleId)}>
+                Quit &amp; relaunch
+              </button>
+              <button className="term-btn" onClick={() => setConfirm(null)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div key={b.bundleId} className="awake-browser">
+            <span>
+              <strong>{b.name}</strong> throttles its windows once the lid closes.
+            </span>
+            <button
+              className="term-btn"
+              disabled={busy === b.bundleId}
+              onClick={() => setConfirm(b.bundleId)}
+            >
+              {busy === b.bundleId ? 'Relaunching…' : 'Relaunch unthrottled'}
+            </button>
+          </div>
+        )
+      )}
+    </div>
+  )
+}
+
 export default function AwakeWidget({ state, open, onOpenChange }: Props): JSX.Element | null {
   const [now, setNow] = useState(Date.now())
   const [view, setView] = useState<'main' | 'settings'>('main')
@@ -597,6 +646,10 @@ export default function AwakeWidget({ state, open, onOpenChange }: Props): JSX.E
                     )}
                   </div>
 
+                  {state.mode === 'lid' && state.throttledBrowsers.length > 0 && (
+                    <BrowserThrottleCard browsers={state.throttledBrowsers} />
+                  )}
+
                   <div className="awake-end-row">
                     <span className="awake-faint">Hold to end early</span>
                     <HoldToEnd onEnd={() => void window.api.endAwake()} />
@@ -640,6 +693,10 @@ export default function AwakeWidget({ state, open, onOpenChange }: Props): JSX.E
                         Set up…
                       </button>
                     </div>
+                  )}
+
+                  {state.lidReady && state.throttledBrowsers.length > 0 && (
+                    <BrowserThrottleCard browsers={state.throttledBrowsers} />
                   )}
 
                   {state.lastEnd && (

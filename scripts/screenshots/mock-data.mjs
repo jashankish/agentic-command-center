@@ -276,7 +276,8 @@ export function buildData() {
         { bundleId: 'net.whatsapp.WhatsApp', name: 'WhatsApp' },
         { bundleId: 'com.hnc.Discord', name: 'Discord' }
       ],
-      lastEnd: null, restorePending: false, agentsWorking: 2, offlineSince: null
+      lastEnd: null, restorePending: false, agentsWorking: 2, offlineSince: null,
+      throttledBrowsers: [{ bundleId: 'com.google.Chrome', name: 'Google Chrome' }]
     }
   }
 }

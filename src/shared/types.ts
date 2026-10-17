@@ -468,4 +468,7 @@ export interface AwakeState {
   agentsWorking: number
   /** ISO time the network dropped, while it is still down during a session. */
   offlineSince: string | null
+  /** Running Chromium browsers without the flags that stop them throttling
+   *  hidden (lid-closed) windows. */
+  throttledBrowsers: Array<{ bundleId: string; name: string }>
 }

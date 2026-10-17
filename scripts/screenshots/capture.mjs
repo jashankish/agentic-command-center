@@ -87,6 +87,7 @@ window.api = (function () {
     retryAwakeRestore: async () => D.awake, dismissAwake: async () => D.awake,
     setAwakeConfig: async () => D.awake, setupAwakeLid: async () => D.awake, removeAwakeLid: async () => D.awake,
     resolveAwakeApp: async (q) => ({ bundleId: q, name: q }),
+    relaunchAwakeBrowser: async () => D.awake,
     onAwakeUpdate: sub
   };
 })();`

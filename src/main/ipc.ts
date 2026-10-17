@@ -47,7 +47,8 @@ import {
   updateAwakeConfig,
   installLidSetup,
   removeLidSetup,
-  resolveApp
+  resolveApp,
+  relaunchBrowser
 } from './awake'
 import type { ViewMode, RepoMeta, FocusTarget, PanelPrefs, AwakeConfig } from '../shared/types'
 
@@ -128,6 +129,7 @@ export function registerIpc(): void {
   ipcMain.handle('awake:setup', () => installLidSetup())
   ipcMain.handle('awake:removeSetup', () => removeLidSetup())
   ipcMain.handle('awake:resolveApp', (_e, input: string) => resolveApp(String(input)))
+  ipcMain.handle('awake:relaunchBrowser', (_e, bundleId: string) => relaunchBrowser(String(bundleId)))
 
   ipcMain.handle('view:get', () => getViewMode())
   ipcMain.handle('view:set', (_e, mode: ViewMode) => setViewMode(mode))
