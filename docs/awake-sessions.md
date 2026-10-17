@@ -118,6 +118,21 @@ Docker idle freeze rule.
 
 ## 8. Delivery record
 
+### Releases
+
+- **v1.5.0** (`20d57bf`, docs `f9718d1`) — awake sessions: timed sleep hold, lid-close actions,
+  floors, journal + launchd backstop, agent auto-start / extension, tmux nudge, App Nap, browser
+  unthrottling. First production run: a 5-hour lid-mode session in the installed app expired on
+  schedule and restored sleep, Low Power Mode, and audio with a clean journal.
+- **v1.5.1** — post-release fixes found in use:
+  - **Clamshell:** a closed lid with an external display no longer counts as "away" — no muting,
+    freezing, Low Power, or display sleep while you work on the big screen (`c2b36c6`).
+  - **Start guard:** no session starts below the battery end limit or at critical heat; the
+    popover explains why (`1608749`).
+  - **Keyboard:** hold Space / Enter on the focused end control to end a session (`f89def1`).
+  - **Settings export / import** carries the awake configuration, sanitised on import (`2d64c77`).
+  - **Test hooks** for battery, heat and external display; every floor verified live (`247894b`).
+
 - **Live-tested** in the real app (CDP-driven, throwaway profile, `ACC_SIMULATE_LID`): UI start,
   hold-to-end (200 ms ignored, 900 ms ends), lid close/open (mute + SIGSTOP, then restore),
   `kill -9` → backstop restore within 5 s of expiry, `kill -9` + relaunch → takeover, agent-aware
