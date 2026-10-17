@@ -503,6 +503,8 @@ command center, plus agent-aware rules of its own.
   *App Nap off · N*, *Hot*).
 - **Badge** — **Lid-close safe** (green) when closing the lid won't sleep the Mac; **Lid open
   only** (amber) when it will.
+- **Notifications** — the app tells you when a session starts for agents, extends for them, or
+  ends (and why); clicking one brings the command center forward with this popover open.
 
 <p align="center">
   <img src="docs/screenshot-awake.png" alt="The awake popover over the bottom-right corner pill: a 02:48:00 countdown until 8:10 PM with +1h added, a gradient progress bar, +15m/+30m/+1h/+2h/+… add-time chips, lid, battery, and agents-working status tags, a notice offering to relaunch Google Chrome unthrottled, a Lid-close safe badge, and the press-and-hold end control" width="300" />

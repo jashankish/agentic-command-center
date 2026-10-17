@@ -424,8 +424,25 @@ function push(): void {
   }
 }
 
+/** Bring the main window forward with the awake popover open — every awake
+ *  notification is about the session, so that's where a click should land. */
+function revealAwake(): void {
+  // The main window is the one not loaded with a docked panel's #hash.
+  const main = BrowserWindow.getAllWindows().find(
+    (w) => !w.isDestroyed() && !/#(feed|terminals)$/.test(w.webContents.getURL())
+  )
+  if (!main) return
+  if (main.isMinimized()) main.restore()
+  main.show()
+  main.focus()
+  main.webContents.send('awake:open')
+}
+
 function notify(title: string, body: string): void {
-  if (Notification.isSupported()) new Notification({ title, body, silent: false }).show()
+  if (!Notification.isSupported()) return
+  const n = new Notification({ title, body, silent: false })
+  n.on('click', revealAwake)
+  n.show()
 }
 
 // ---------- sudoers setup ----------

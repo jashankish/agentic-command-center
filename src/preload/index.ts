@@ -126,6 +126,12 @@ const api = {
   // Quit + reopen a Chromium browser with the unthrottling flags (confirmed in the UI).
   relaunchAwakeBrowser: (bundleId: string): Promise<AwakeState> =>
     ipcRenderer.invoke('awake:relaunchBrowser', bundleId),
+  // An awake notification was clicked — open the corner popover.
+  onAwakeOpen: (cb: () => void): (() => void) => {
+    const handler = (): void => cb()
+    ipcRenderer.on('awake:open', handler)
+    return () => ipcRenderer.removeListener('awake:open', handler)
+  },
   onAwakeUpdate: (cb: (state: AwakeState) => void): (() => void) => {
     const handler = (_e: unknown, state: AwakeState): void => cb(state)
     ipcRenderer.on('awake:update', handler)

@@ -77,6 +77,8 @@ export default function App(): JSX.Element {
   // Keep-awake session (bottom-right corner widget).
   const awake = useAwake()
   const [awakeOpen, setAwakeOpen] = useState(false)
+  // Clicking an awake notification opens the popover.
+  useEffect(() => window.api.onAwakeOpen(() => setAwakeOpen(true)), [])
 
   const flash = useCallback((msg: string) => {
     setToast(msg)

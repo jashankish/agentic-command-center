@@ -135,6 +135,8 @@ Docker idle freeze rule.
   - **Settings apply mid-session:** toggling App Nap holds / restores it at once (`96663b9`); with
     the lid shut, toggling *Mute audio* mutes / unmutes and editing the freeze list freezes /
     resumes immediately (`updateAwakeConfig()`, `resumeFrozen(keep)`).
+  - **Clickable notifications:** clicking an awake notification brings the main window forward with
+    the popover open (`revealAwake()` → `awake:open` → `onAwakeOpen`).
   - Dev: `npm run fix:electron` re-signs the revoked dev Electron (`5987d3f`).
 
 - **Live-tested** in the real app (CDP-driven, throwaway profile, `ACC_SIMULATE_LID`): UI start,

@@ -90,7 +90,7 @@ window.api = (function () {
     setAwakeConfig: async () => awake(), setupAwakeLid: async () => awake(), removeAwakeLid: async () => awake(),
     resolveAwakeApp: async (q) => ({ bundleId: q, name: q }),
     relaunchAwakeBrowser: async () => awake(),
-    onAwakeUpdate: sub
+    onAwakeUpdate: sub, onAwakeOpen: sub
   };
 })();`
 }
