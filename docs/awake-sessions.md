@@ -5,6 +5,11 @@ included) for a fixed, user-chosen duration, then restores everything. Behaviour
 [Insomnia](https://github.com/krishhgg/Insomnia) (a Swift menu-bar app) re-implemented inside the
 Electron main process; the UI follows the command center's own glass/hairline/accent language.
 
+**Using it:** the step-by-step walkthrough, settings table, and screenshots live in the README's
+[Awake sessions](../README.md#awake-sessions-keep-the-mac-awake) section
+(`screenshot-awake-start.png`, `screenshot-awake.png`, `screenshot-awake-settings.png`, all from the
+synthetic dataset via `npm run screenshots awake`).
+
 ## 1. Feature list
 
 | Area | Behaviour |

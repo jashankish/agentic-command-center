@@ -51,8 +51,10 @@ to the shipped app — it is only the *data* that is fake.
    messages and contributor names. Never paste in real data.
 2. **A brand-new surface** (panel, dialog, docked window) → add an entry to the
    `SHOTS` array in `capture.mjs` (set `hash` for a docked window, `element` to
-   clip to a node, `clipTo` to clip from the top down to a node, or `prep` to
-   click something open first), then embed the new PNG in the root README.
+   clip to a node, `clipTo` to clip from the top down to a node, `prep` to
+   click something open first, or `init` to run a script before the page loads —
+   e.g. `window.__AWAKE_STATE__ = 'awakeIdle'` swaps in an alternate awake state
+   from `mock-data.mjs`), then embed the new PNG in the root README.
 3. Run `npm run screenshots` and eyeball the result.
 
 ## Notes

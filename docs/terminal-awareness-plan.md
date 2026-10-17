@@ -115,6 +115,13 @@ shims/wrappers around the user's `claude` binary.
   rides the existing session spreads with no new IPC. The two detection layers (the hook stream and
   the transcript heuristic) are detailed in
   [§3](#3-signal-inventory--three-independent-layers); see [§9](#9-delivery-record) for the commits.
+- **Awake-session consumers** *(post-plan, v1.5.0)* — the keep-awake feature
+  ([`awake-sessions.md`](awake-sessions.md)) reads this layer's snapshot: `countWorkingAgents()`
+  calls `getTerminals(listRepos())` and counts entries + unbound sessions in `working`. That count
+  drives **Start automatically when agents work** (start a 30-min session when one begins) and
+  **Stay awake while agents work** (extend 15 min at a time at expiry, 12 h cap). Waiting states
+  (`permission`, `input`) deliberately don't count. `tmux.ts` also gained `nudgeMarkedPanes()` for
+  the awake outage nudge (pane-scoped `@insomnia-nudge` mark, flags checked before every send).
 
 ---
 
@@ -430,6 +437,7 @@ bounded 5–60 min) — every notification class gated by the persisted preferen
 | 1 — zero-setup panel | `64250ca` detection layers (procs / agentsessions / terminals + dock table) · `9585c0b` docked panel UI, flash, chip, toolbar pulse |
 | 2 — exact states | `ea5793a` event watcher + consent installer · `853356b` push updates, notifications, dock badge, hooks card · `919182c` README |
 | 3 — extended | `d411669` palette launch + telemetry chips · `ec9a6d9` timeline backend, detailed variant, host activation, prefs, bounce · `4857718` Events tab, prefs toggles, unbound activation, stale escalation · `32f558e` repo-card launch button · `30c06ba` README · `efe8756` tmux mapping |
+| 5 — awake consumers *(post-plan)* | `aa2297c` extend while agents work · `9e240cb` tmux `nudgeMarkedPanes` · `afac661` auto-start when agents work · shipped in v1.5.0 (`20d57bf`) |
 | 4 — automations strip *(post-plan)* | `3f2f4df` "Looping now" pop-out — hook-stream loop/cron tagging + `AutomationStrip` UI (v1.4.0) · `1160338` hook-free detection via the transcript heuristic (v1.4.1) |
 
 The original nice-to-haves have since landed too: a README screenshot of the panel ships under

@@ -27,7 +27,8 @@ rest keeps working.
 > **macOS only.** This app targets macOS exclusively. Several core features rely on macOS-specific
 > APIs: the Claude usage token is read from the **macOS Keychain**, calendar events and the
 > terminals panel (tab listing + click-to-focus) use **AppleScript**, dev-server detection uses
-> **`lsof`**, and editor/Finder/Terminal launching uses **`open -a`**. The prebuilt `.dmg` runs on
+> **`lsof`**, editor/Finder/Terminal launching uses **`open -a`**, and awake sessions rely on
+**`pmset`**, **`ioreg`**, and a **launchd** recovery agent. The prebuilt `.dmg` runs on
 > Apple Silicon (arm64); Intel Mac users can build from source with `npm run dist`. **Linux and
 > Windows are not supported.**
 
@@ -51,7 +52,8 @@ rest keeps working.
   - [Claude Code Usage & cost](#claude-code-usage--cost)
   - [GitHub Contributions](#github-contributions)
   - [Info card](#info-card)
-  - [Awake sessions (keep the Mac awake)](#awake-sessions-keep-the-mac-awake)
+  - [Awake sessions (keep the Mac awake)](#awake-sessions-keep-the-mac-awake) —
+    [quick start](#quick-start), [settings](#settings-), [lid-close access](#lid-close-access)
 - [Where your data comes from (and privacy)](#where-your-data-comes-from-and-privacy)
 - [Refresh cadence](#refresh-cadence)
 - [Configuration & persisted state](#configuration--persisted-state)
@@ -142,6 +144,7 @@ rest keeps working.
 | **Claude usage bars + cost panel** | [Claude Code](https://claude.com/claude-code) installed and signed in on this machine. |
 | **Terminals panel** | Terminal.app and/or iTerm2 running, plus a one-time macOS **Automation** consent per app. Exact session states are an *optional* one-click hook install from the panel. |
 | **Activity-feed AI summaries** | An Apple Silicon Mac on macOS 26+ with **Apple Intelligence** enabled — *optional*; without it the feed shows raw commit messages. |
+| **Awake sessions** | Nothing for the basic timer. To survive **closing the lid**, a one-time admin approval of the four-command `pmset` rule (**Set up…** in the popover). The tmux nudge needs [tmux](https://github.com/tmux/tmux) 3.0+; the agent-aware rules use the terminals panel's session detection. |
 | **Today's calendar event** | macOS Calendar with at least one account (grants an Automation prompt once). |
 | **Building from source** | Node.js ≥ 18 with npm (plus Xcode 26+ or its Command Line Tools to compile the on-device summarizer helper — optional). |
 
@@ -453,11 +456,11 @@ moment the local day rolls over so the newest column appears right after midnigh
 ### Info card
 
 The **ℹ️** button opens a scrollable help dialog that renders the *actual* icons next to plain
-descriptions for every toolbar button, status color, CI badge, card chip, and quick action — plus a
-full explanation of the cost logic above. It's the fastest way for a new user to learn the UI.
+descriptions for every toolbar button, status color, CI badge, card chip, quick action, and the
+awake-session pill and badges — plus a full explanation of the cost logic above. It's the fastest way for a new user to learn the UI.
 
 <p align="center">
-  <img src="docs/screenshot-info.png" alt="Info card dialog explaining every icon, status color, and cost calculation" width="420" />
+  <img src="docs/screenshot-info.png" alt="Info card dialog explaining every icon, status color, the awake-session pill and badges, and the cost calculation" width="420" />
 </p>
 
 ### Awake sessions (keep the Mac awake)
@@ -465,25 +468,81 @@ full explanation of the cost logic above. It's the fastest way for a new user to
 Long agent runs die when the laptop sleeps. The pill in the window's **bottom-right corner** keeps
 the Mac awake for a **fixed, chosen duration** — never an open-ended toggle — then gives sleep back.
 A **closed eye** means the Mac may sleep; an **open eye** with a draining **countdown ring** means a
-session holds it awake (an amber dot flags anything needing attention).
+session holds it awake (an amber dot flags anything needing attention). While one runs, an
+**Awake · 2h 48m** chip also sits in the [health bar](#health-bar) — click it to open the same
+popover. Behaviour follows [Insomnia](https://github.com/krishhgg/Insomnia), rebuilt inside the
+command center, plus agent-aware rules of its own.
 
-- **Start** — click the pill, type **Days / Hours / Minutes** (each field capped: 30 / 23 / 59;
-  ↑/↓ nudge, Enter starts) or pick a preset (30m → 3d). The button reads *Stay awake until 9:41 PM*.
+#### Quick start
+
+1. **Click the eye** in the bottom-right corner of the window.
+2. **Pick how long** — type **Days / Hours / Minutes** (capped at 30 / 23 / 59; ↑/↓ nudge a field)
+   or tap a preset (**30m · 1h · 2h · 4h · 8h · 12h · 1d · 3d**). The button shows when it ends.
+3. **Press Enter** or click **Stay awake until …**. The pill turns into an open eye with a
+   countdown.
+4. **Want it to survive closing the lid?** Click **Set up…** once and approve the macOS admin
+   prompt (details under [Lid-close access](#lid-close-access)). Until then the badge reads
+   **Lid open only** — the Mac stays awake, but closing the lid still sleeps it.
+5. **Optional:** open **⚙** and turn on **Start automatically when agents work** — from then on you
+   never have to start a session for agent runs at all.
+
+<p align="center">
+  <img src="docs/screenshot-awake-start.png" alt="The awake popover's start view above the closed-eye corner pill: Days, Hours, and Minutes fields with 4 hours entered, preset chips from 30m to 3d with 4h selected, a Stay awake until 5:08 AM button, a Lid open only badge, the one-time Set up card explaining the four pmset commands, and the time the last session ended" width="300" />
+</p>
+
+#### While a session runs
+
 - **Add time** — `+15m` / `+30m` / `+1h` / `+2h` chips, or `+…` for a custom amount (30-day cap).
+  The palette's **Keep awake 1 hour longer** does the same.
 - **End early** — **press and hold** the stop control: a red ring draws for 0.6 s and only a
-  completed ring ends it, so a stray click can't kill a session. Quitting the app ends it too.
-- **Status tags** — lid open/closed, battery %, and what the lid-close actions currently hold (Low
-  Power, Muted, N apps frozen, Hot).
-- **Lid-close access** — macOS sleeps on lid close no matter what an app asks, unless sleep is
-  disabled system-wide. **Set up…** asks for your admin password once and installs
-  `/etc/sudoers.d/agentic-command-center`, allowing **exactly four** commands without a password:
-  `pmset -a disablesleep 1|0` and `pmset -b lowpowermode 1|0` (validated with `visudo` first). The
-  same four as [Insomnia](https://github.com/krishhgg/Insomnia), so either app's rule works for
-  both. Without it the badge reads **Lid open only** and a power assertion holds while the lid is up.
+  completed ring ends it, so a stray click can't kill a session. **End awake session** in the ⌘K
+  palette works too, and quitting the app ends the session first.
+- **Status tags** — lid open/closed, battery % (or *Plugged in*), agents working, *Offline* during a
+  network outage, and what the session currently holds (*Low Power*, *Muted*, *N apps frozen*,
+  *App Nap off · N*, *Hot*).
+- **Badge** — **Lid-close safe** (green) when closing the lid won't sleep the Mac; **Lid open
+  only** (amber) when it will.
 
-**When the lid closes** during a lid-close-safe session (each toggleable under ⚙, all undone on
-open; the timer keeps running and opening the lid doesn't end the session — in *lid open only*
-mode the Mac simply sleeps, so none of these run):
+<p align="center">
+  <img src="docs/screenshot-awake.png" alt="The awake popover over the bottom-right corner pill: a 02:48:00 countdown until 8:10 PM with +1h added, a gradient progress bar, +15m/+30m/+1h/+2h/+… add-time chips, lid, battery, and agents-working status tags, a notice offering to relaunch Google Chrome unthrottled, a Lid-close safe badge, and the press-and-hold end control" width="300" />
+</p>
+
+#### Settings (⚙)
+
+Every rule beyond the timer is opt-in or adjustable from the gear in the popover:
+
+| Setting | Default | What it does |
+|---|---|---|
+| **Start automatically when agents work** | off | Starts a 30-min session when a Claude session begins working; follows the agents until they're idle. |
+| **Stay awake while agents work** | off | When the timer runs out mid-turn, extends 15 min at a time (12 h cap). |
+| **Keep agent apps out of App Nap** | off | Holds App Nap off for installed terminals, editors, and agent apps; restores each app's own setting afterwards. |
+| **Type "continue" into marked tmux panes** | off | After a 90 s+ network outage, nudges tmux panes you've marked (Enter optional). |
+| **Sleep the display / Mute audio / Low Power Mode** | on | What happens when the lid closes. |
+| **Freeze while closed** | Slack, WhatsApp, Discord | Apps paused while the lid is closed; add by name or bundle id. |
+| **Low Power Mode below / End session below** | 40% / 10% | Battery floors (0 turns the end off). |
+| **Heat rules** | on | Low Power Mode at serious heat, end at critical. |
+| **Lid-close access** | not set up | **Set up…** / **Remove access** for the four-command `pmset` rule. |
+
+<p align="center">
+  <img src="docs/screenshot-awake-settings.png" alt="Awake settings: Start automatically when agents work, Stay awake while agents work, and Keep agent apps out of App Nap toggles; a toggle to type continue into marked tmux panes after a network outage, with the pane-mark command; toggles to sleep the display, mute audio, and turn on Low Power Mode when the lid closes; a freeze list with Slack, WhatsApp, and Discord; battery floors at 40% and 10%; heat rules; and the lid-close access status" width="300" />
+</p>
+
+#### Lid-close access
+
+macOS sleeps on lid close no matter what an app asks, unless sleep is disabled system-wide.
+**Set up…** asks for your admin password once and installs `/etc/sudoers.d/agentic-command-center`,
+allowing **exactly four** commands without a password: `pmset -a disablesleep 1|0` and
+`pmset -b lowpowermode 1|0` (validated with `visudo` first). They're the same four as
+[Insomnia](https://github.com/krishhgg/Insomnia), so either app's rule works for both. Any program
+running as you can use those four commands too — the **Details** link shows the rule before you
+approve it, and **⚙ → Remove access** (or `sudo rm /etc/sudoers.d/agentic-command-center`) takes it
+away. Without it, a power assertion keeps the Mac awake while the lid is open.
+
+#### When the lid closes
+
+During a lid-close-safe session (each toggleable under ⚙, all undone on open; the timer keeps
+running and opening the lid doesn't end the session — in *lid open only* mode the Mac simply
+sleeps, so none of these run):
 - the **display sleeps** (best effort — with sleep disabled macOS no longer does it itself),
 - audio is **muted** (and unmuted on open only if it was unmuted before),
 - **Low Power Mode** turns on (off again on open unless a battery/heat rule still wants it),
@@ -492,33 +551,34 @@ mode the Mac simply sleeps, so none of these run):
   start time still matches is ever resumed. Agent hosts, terminals, editors, and `com.apple.*` apps
   can't be added.
 
-**Stay awake while agents work** — an opt-in rule under ⚙ → *Agents*. When the timer runs out but a
-Claude session the terminals panel sees is still **working** (mid-turn), the session extends itself
-by **15 minutes** instead of ending, re-checking each time, up to **12 hours** of automatic time; a
-notification says so the first time. The countdown notes *+Nm for agents* and a tag shows how many
-agents are working. Sessions waiting on you (permission / your turn) don't count — only real work.
+#### Agent-aware rules
 
-**Start automatically when agents work** — the hands-off version, under ⚙ → *Agents*. With no
-session running, the app checks every minute; as soon as a Claude session is **working** it starts
-a **30-minute** session (*started for agents* under the countdown, plus a notification) that always
-follows the agents — extending 15 minutes at a time while any is still working, up to 12 hours, then
-ending once they're idle. It's still a timed session, never an open-ended toggle. If you end one by
-hand, that stands: it won't start again until every agent has gone idle first.
+**Start automatically when agents work** — the hands-off option. With no session running, the app
+checks every minute; as soon as a Claude session is **working** it starts a **30-minute** session
+(*started for agents* under the countdown, plus a notification) that always follows the agents —
+extending 15 minutes at a time while any is still working, up to 12 hours, then ending once they're
+idle. It's still a timed session, never an open-ended toggle. If you end one by hand, that stands:
+it won't start again until every agent has gone idle first.
 
-**Keep agent apps out of App Nap** — an opt-in rule under ⚙ → *Agents*. For the length of a
-session it sets `NSAppSleepDisabled` for each **installed** agent app — Terminal, iTerm2, Ghostty,
-Warp, VS Code, Cursor, Zed, Antigravity, Claude, ChatGPT/Codex, T3 Code, Conductor, Chrome/Chromium/
-Arc, Docker Desktop, Tailscale, LM Studio, Ollama — so macOS's App Nap can't slow them while they're
-in the background. Each app's previous value (set, unset, or absent) is journaled *before* the
-write, apps already opted out are left alone, and the value is put back when the session ends (the
-crash backstop does it too). macOS reads the key at launch, so it applies to apps opened during the
-session; an *App Nap off · N* tag shows how many are covered. Off, the app never writes another
-app's preferences.
+**Stay awake while agents work** — when the timer runs out but a Claude session the terminals panel
+sees is still **working** (mid-turn), the session extends itself by **15 minutes** instead of
+ending, re-checking each time, up to **12 hours** of automatic time; a notification says so the
+first time. The countdown notes *+Nm for agents* and a tag shows how many agents are working.
+Sessions waiting on you (permission / your turn) don't count — only real work.
 
-**After a network outage** — an opt-in rule under ⚙. If the network drops during a session (an
-amber *Offline* tag shows how long) and comes back after **90 s or more**, the app types `continue`
-into every tmux pane you've marked, so an agent that gave up on failed API calls carries on. Only
-panes carrying the pane-scoped mark are touched — the same one Insomnia uses:
+**Keep agent apps out of App Nap** — for the length of a session it sets `NSAppSleepDisabled` for
+each **installed** agent app — Terminal, iTerm2, Ghostty, Warp, VS Code, Cursor, Zed, Antigravity,
+Claude, ChatGPT/Codex, T3 Code, Conductor, Chrome/Chromium/Arc, Docker Desktop, Tailscale, LM
+Studio, Ollama — so macOS's App Nap can't slow them while they're in the background. Each app's
+previous value (set, unset, or absent) is journaled *before* the write, apps already opted out are
+left alone, and the value is put back when the session ends (the crash backstop does it too). macOS
+reads the key at launch, so it applies to apps opened during the session. Off, the app never writes
+another app's preferences.
+
+**After a network outage** — if the network drops during a session (an amber *Offline* tag shows
+how long) and comes back after **90 s or more**, the app types `continue` into every tmux pane
+you've marked, so an agent that gave up on failed API calls carries on. Only panes carrying the
+pane-scoped mark are touched — the same one Insomnia uses:
 
 ```bash
 tmux set-option -p -t <session:window.pane> @insomnia-nudge on
@@ -529,32 +589,36 @@ each send, and a pane that is dead, in copy/choose mode, or not accepting input 
 is off by default** — turn on *Press Enter after it* to submit, knowing it also submits anything
 already typed there; mark a dedicated agent pane, not one you type in.
 
-**Browser throttling** — Chromium browsers slow down windows macOS reports as hidden, which is
-every window once the lid is closed, so browser-driven agents (or a web app left working) stall.
-When lid-close access is set up, the popover lists any running **Chrome, Chromium, Arc, or Comet**
-launched without `--disable-backgrounding-occluded-windows` and `--disable-renderer-backgrounding`,
-each with **Relaunch unthrottled**. That asks first — it quits the browser, and windows and tabs come
-back only if the browser reopens them on startup — then quits it politely, waits up to 10 s, and
-reopens it with both flags plus its `--user-data-dir` / `--profile-directory`. If it hasn't quit in
-10 s **nothing is launched** (a second copy would be worse than a throttled one); if it doesn't come
-back within 5 s, you're told. Nothing is ever relaunched automatically.
+#### Browser throttling
+
+Chromium browsers slow down windows macOS reports as hidden, which is every window once the lid is
+closed, so browser-driven agents (or a web app left working) stall. When lid-close access is set
+up, the popover lists any running **Chrome, Chromium, Arc, or Comet** launched without
+`--disable-backgrounding-occluded-windows` and `--disable-renderer-backgrounding`, each with
+**Relaunch unthrottled**. That asks first — it quits the browser, and windows and tabs come back
+only if the browser reopens them on startup — then quits it politely, waits up to 10 s, and reopens
+it with both flags plus its `--user-data-dir` / `--profile-directory`. If it hasn't quit in 10 s
+**nothing is launched** (a second copy would be worse than a throttled one); if it doesn't come back
+within 5 s, you're told. Nothing is ever relaunched automatically.
+
+#### Battery, heat & recovery
 
 **Battery & heat** — on battery, Low Power Mode below **40%** and the session ends below **10%**
 (0 turns the end off); heat rules turn on Low Power Mode at *serious* and end at *critical*.
 
 **Recovery** — every change is written to `awake/journal.json` *before* it is made. On launch the
 app resumes a session still in progress or undoes what an earlier run left changed; a failed
-restore stays visible with **Retry restore**. While a session runs, a **launchd backstop**
+restore stays visible with **Retry restore** (and an *Awake restore pending* health-bar chip).
+While a session runs, a **launchd backstop**
 (`~/Library/LaunchAgents/com.jashan.agenticcommandcenter.awake-backstop.plist`, every 60 s) undoes
-an *expired* session's changes if the app has crashed, then removes itself.
+an *expired* session's changes if the app has crashed — sleep, Low Power Mode, audio, frozen apps,
+App Nap — then removes itself.
 
 > Use a stable, well-ventilated surface — never a closed bag. A running timer is not a safety
 > guarantee.
 
-<p align="center">
-  <img src="docs/screenshot-awake.png" alt="The awake popover over the bottom-right corner pill: a 02:48:00 countdown until 8:10 PM with +1h added, a gradient progress bar, +15m/+30m/+1h/+2h/+… add-time chips, lid, battery, and agents-working status tags, a notice offering to relaunch Google Chrome unthrottled, a Lid-close safe badge, and the press-and-hold end control" width="300" />
-  <img src="docs/screenshot-awake-settings.png" alt="Awake settings: Start automatically when agents work, Stay awake while agents work, and Keep agent apps out of App Nap toggles; a toggle to type continue into marked tmux panes after a network outage, with the pane-mark command; toggles to sleep the display, mute audio, and turn on Low Power Mode when the lid closes; a freeze list with Slack, WhatsApp, and Discord; battery floors at 40% and 10%; heat rules; and the lid-close access status" width="300" />
-</p>
+The full design — ownership rules, journal format, concurrency, test hooks, and the verification
+record — lives in [`docs/awake-sessions.md`](docs/awake-sessions.md).
 
 ---
 
@@ -575,6 +639,7 @@ token. Here is exactly what is read and how:
 | **Dev servers** | `lsof` for listening TCP ports, mapped to repos by working directory | None | No |
 | **Terminals panel (tabs & titles)** | AppleScript enumeration of Terminal.app / iTerm2 (only when already running) joined with one `ps` pass, `lsof` working dirs, and `tmux list-panes`/`list-clients` for pane↔client mapping | macOS **Automation** permission, prompted once per app | No |
 | **Claude session states** | Transcript tails in `~/.claude/projects/**` and, with the opt-in hooks, event files Claude Code writes to the app's own data folder | None — local files only | **No** |
+| **Awake sessions** | `pmset` (sleep hold, Low Power Mode, battery), `ioreg` (lid state), `osascript` (mute), `ps` / `lsappinfo` / `mdfind` (freeze list, browsers), `defaults` (App Nap), Electron `powerMonitor` / `net` (heat, connectivity), a journal in the app's data folder | Your one-time admin approval of the four-command sudoers rule (only for lid-close) | No |
 | **Today's calendar** | AppleScript query against Calendar.app | macOS Automation permission (prompted once) | No |
 | **CPU / RAM** | Node's `os` module | None | No |
 
@@ -616,6 +681,7 @@ rate-limited sources are polled gently:
 | Claude quota bars | every 3 min (2-min cache + 429 backoff in the main process); a credential watch **pushes immediately** when Claude Code's token changes (`/login` / refresh) |
 | Contribution graph | on day-rollover + ~every 10 min |
 | Activity feed | every 20s while open (and on re-show); summaries fill in as the on-device model finishes |
+| Awake sessions | countdown every 1s; **only while a session runs:** lid every 2s, network every 5s, deadline check every 15s, battery + throttled browsers every 60s; the agent watcher (when *Start automatically* is on) every 60s; launchd backstop every 60s |
 | Terminals panel & session states | every 5s while the panel is open; every 15s for the chip/badge; **hook events push instantly** |
 
 `gh`-backed data is cached per repo (insights 5 min, inbox 2 min) to stay well under GitHub's rate
@@ -693,6 +759,7 @@ type-checked end to end.
 | `getAgentTimeline` / `onSessionsUpdate` | recent agent lifecycle events / instant push when hook events land (`agentevents.ts`) |
 | `getHooksStatus` / `installHooks` / `uninstallHooks` | the opt-in exact-states hooks, incl. the per-tool-detail variant (`hooks-setup.ts`) |
 | `launchAgent` / `getPanelPrefs` / `setPanelPrefs` / `setBadge` | tracked Claude launch / panel preferences / dock badge (`actions.ts`, `store.ts`, `ipc.ts`) |
+| `getAwake` / `startAwake` / `extendAwake` / `endAwake` / `setAwakeConfig` / `setupAwakeLid` / `relaunchAwakeBrowser` / `onAwakeUpdate` | awake sessions: sleep hold, lid actions, floors, journal + backstop, agent rules, sudoers setup, browser relaunch; state pushed on every change (`awake.ts`, `browsers.ts`, `tmux.ts`, `store.ts`) |
 | `getCalendar` / `getSystemStats` | Calendar via AppleScript / CPU+RAM (`calendar.ts`, `system.ts`) |
 | `scanForRepos` | scan a folder for `.git` repos (`discover.ts`) |
 | `getRepoMeta` / `setRepoMeta` / `exportSettings` / `importSettings` | persistence (`store.ts`) |
@@ -728,6 +795,17 @@ stream feeds the panel's **Events** tab through a capped, duplicate-free timelin
 The full design — signal layers, state machine, security guarantees, failure modes, and the
 delivery record — lives in
 [`docs/terminal-awareness-plan.md`](docs/terminal-awareness-plan.md).
+
+**Awake sessions** live in the main process (`awake.ts`). One serialized promise chain runs every
+lifecycle step — start, extend, lid close/open, battery and heat floors, expiry, end — so they never
+interleave. Each change to the system (sleep bit, Low Power Mode, mute, frozen pids, App Nap values)
+is written to an owner-only journal **before** it is made and cleared only after it's undone, which
+lets a relaunch resume or restore and lets a small launchd shell **backstop** (reading the journal
+with `plutil`) undo an expired session even when the app has crashed. The renderer's corner widget
+(`AwakeWidget.tsx`) and health-bar chip are pure views of an `AwakeState` the main process pushes
+over `awake:update`. The agent-aware rules reuse the terminals snapshot (`getTerminals`) to count
+working Claude sessions. Full design, ownership rules, and the verification record:
+[`docs/awake-sessions.md`](docs/awake-sessions.md).
 
 ---
 

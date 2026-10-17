@@ -42,6 +42,8 @@ window.api = (function () {
   const ok = { success: true };
   let viewMode = D.viewMode, meta = D.repoMeta, prefs = D.panelPrefs;
   const noop = () => {}, sub = () => noop;
+  // A shot can swap the awake state (e.g. D.awakeIdle for the start view).
+  const awake = () => (window.__AWAKE_STATE__ && D[window.__AWAKE_STATE__]) || D.awake;
   return {
     listRepos: async () => D.repos.map(r => r.path),
     getStatus: async (p) => D.status[p],
@@ -82,12 +84,12 @@ window.api = (function () {
     focusTerminal: async () => ok, activateHostApp: async () => ok,
     openEditor: async () => ok, openTerminal: async () => ok, reveal: async () => ok, openRemote: async () => ok,
     runScript: async () => ok,
-    getAwake: async () => D.awake, refreshAwake: async () => D.awake,
-    startAwake: async () => D.awake, extendAwake: async () => D.awake, endAwake: async () => D.awake,
-    retryAwakeRestore: async () => D.awake, dismissAwake: async () => D.awake,
-    setAwakeConfig: async () => D.awake, setupAwakeLid: async () => D.awake, removeAwakeLid: async () => D.awake,
+    getAwake: async () => awake(), refreshAwake: async () => awake(),
+    startAwake: async () => awake(), extendAwake: async () => awake(), endAwake: async () => awake(),
+    retryAwakeRestore: async () => awake(), dismissAwake: async () => awake(),
+    setAwakeConfig: async () => awake(), setupAwakeLid: async () => awake(), removeAwakeLid: async () => awake(),
     resolveAwakeApp: async (q) => ({ bundleId: q, name: q }),
-    relaunchAwakeBrowser: async () => D.awake,
+    relaunchAwakeBrowser: async () => awake(),
     onAwakeUpdate: sub
   };
 })();`
@@ -124,6 +126,12 @@ const SHOTS = [
     prep: async (p) => { await p.click('button[title="What everything means"]'); await p.waitForSelector('.info-scroll') } },
   { file: 'screenshot-activity-feed.png', width: 320, hash: '#feed', waitFor: '.feed-entry', element: '.feed-window' },
   { file: 'screenshot-terminals.png', width: 360, hash: '#terminals', waitFor: '.term-entry', element: '.term-window' },
+  { file: 'screenshot-awake-start.png', width: 760, waitFor: '.card', element: '.awake',
+    init: "window.__AWAKE_STATE__ = 'awakeIdle'",
+    prep: async (p) => {
+      await p.click('.awake-pill'); await p.waitForSelector('.awake-fields')
+      await p.click('.awake-chip >> text=4h'); await p.waitForSelector('.awake-start:not([disabled])')
+    } },
   { file: 'screenshot-awake.png', width: 760, waitFor: '.card', element: '.awake',
     prep: async (p) => { await p.click('.awake-pill'); await p.waitForSelector('.awake-clock') } },
   { file: 'screenshot-awake-settings.png', width: 760, waitFor: '.card', element: '.awake',
@@ -168,6 +176,7 @@ async function main() {
   for (const s of shots) {
     const ctx = await browser.newContext({ viewport: { width: s.width, height: 1000 }, deviceScaleFactor: 2 })
     await ctx.addInitScript(initJs)
+    if (s.init) await ctx.addInitScript(s.init)
     const page = await ctx.newPage()
     // Surface renderer crashes (e.g. a window.api method missing from the mock).
     page.on('pageerror', (e) => console.error('  ! page error:', e.message))

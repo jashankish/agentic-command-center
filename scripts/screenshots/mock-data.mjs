@@ -256,6 +256,26 @@ export function buildData() {
       previewDetailed: '{ "hooks": { "SessionStart": [ … ], "PreToolUse": [ … ], "PostToolUse": [ … ] } }'
     },
     panelPrefs: { notifyPermission: true, notifyInput: false, notifyStale: true, showPlainTerminals: true },
+    // No session yet and lid-close access not set up: the start view a new user sees.
+    awakeIdle: {
+      session: null, mode: null, lidReady: false, ruleOwned: false, lidClosed: false,
+      onBattery: true, batteryPercent: 78, thermal: 'nominal',
+      lowPowerByUs: false, mutedByUs: false, frozen: [], foreignSleepHold: false, warnings: [],
+      config: {
+        darkenDisplayOnLidClose: true, muteOnLidClose: true, lowPowerOnLidClose: true,
+        freezeList: ['com.tinyspeck.slackmacgap', 'net.whatsapp.WhatsApp', 'com.hnc.Discord'],
+        lowPowerFloor: 40, endFloor: 10, thermalRules: true, extendWhileAgentsWork: false,
+        autoStartWithAgents: false, tmuxNudge: false, tmuxNudgePressesEnter: false,
+        disableAppNapForAgents: false
+      },
+      freezeApps: [
+        { bundleId: 'com.tinyspeck.slackmacgap', name: 'Slack' },
+        { bundleId: 'net.whatsapp.WhatsApp', name: 'WhatsApp' },
+        { bundleId: 'com.hnc.Discord', name: 'Discord' }
+      ],
+      lastEnd: { at: ago(9 * HR), reason: 'expired' }, restorePending: false,
+      agentsWorking: 0, offlineSince: null, throttledBrowsers: [], appNapApps: []
+    },
     // A keep-awake session 1h12m in, 2h48m to go, on battery with the lid open.
     awake: {
       session: {
