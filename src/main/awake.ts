@@ -144,6 +144,16 @@ async function isLowPowerOn(): Promise<boolean | null> {
 }
 
 async function readBattery(): Promise<{ onBattery: boolean; percent: number | null }> {
+  // Test hook: ACC_SIMULATE_BATTERY=<file> holding e.g. `35 battery` or `80 ac`.
+  const simulated = process.env.ACC_SIMULATE_BATTERY
+  if (simulated) {
+    try {
+      const [pct, source] = (await readFile(simulated, 'utf8')).trim().split(/\s+/)
+      return { onBattery: source === 'battery', percent: Number.isFinite(Number(pct)) ? Number(pct) : null }
+    } catch {
+      return { onBattery: false, percent: null }
+    }
+  }
   const r = await run(PMSET, ['-g', 'batt'], 10_000)
   const pct = /(\d+)%/.exec(r.stdout)
   return {
@@ -916,6 +926,8 @@ function startMonitors(): void {
     })
   }, 2000)
   netTimer = setInterval(() => void pollNetwork(), 5000)
+  // ACC_FLOOR_POLL_MS shortens the battery/heat poll for tests (default 60 s).
+  const floorPollMs = Number(process.env.ACC_FLOOR_POLL_MS) || 60_000
   batteryTimer = setInterval(() => {
     void pollBattery()
     void rescanBrowsers()
@@ -928,7 +940,7 @@ function startMonitors(): void {
         }
       })
     }
-  }, 60_000)
+  }, floorPollMs)
   // Belt and braces next to the exact end timer: a sleeping or suspended
   // process can overshoot setTimeout, so check the deadline regularly too.
   tickTimer = setInterval(() => {
@@ -954,9 +966,25 @@ function armEndTimer(): void {
   endTimer = setTimeout(() => void expire(), Math.min(ms, 2_000_000_000))
 }
 
+/** Test hook: ACC_SIMULATE_THERMAL=<file> holding nominal / fair / serious / critical. */
+async function readSimulatedThermal(): Promise<AwakeState['thermal'] | null> {
+  const simulated = process.env.ACC_SIMULATE_THERMAL
+  if (!simulated) return null
+  try {
+    const s = (await readFile(simulated, 'utf8')).trim()
+    return s === 'nominal' || s === 'fair' || s === 'serious' || s === 'critical' ? s : null
+  } catch {
+    return null
+  }
+}
+
 async function pollBattery(): Promise<void> {
   const b = await readBattery()
-  const changed = b.onBattery !== live.onBattery || b.percent !== live.batteryPercent
+  const thermal = await readSimulatedThermal()
+  const thermalChanged = thermal !== null && thermal !== live.thermal
+  if (thermal !== null) live.thermal = thermal
+  const changed =
+    thermalChanged || b.onBattery !== live.onBattery || b.percent !== live.batteryPercent
   live.onBattery = b.onBattery
   live.batteryPercent = b.percent
   if (changed && J().session) {

@@ -137,9 +137,16 @@ Docker idle freeze rule.
   verified: simulated lid closed + external → nothing frozen; display unplugged → sleeper frozen;
   plugged back in → resumed; and with no simulation at all, the user's real closed lid + external
   monitor read `clamshell=true` with nothing frozen.
+- **Battery & heat floors, live (2026-10-17):** with `ACC_SIMULATE_BATTERY`, `ACC_SIMULATE_THERMAL`
+  and `ACC_FLOOR_POLL_MS=2000`: 35% on battery kept running; 8% on battery ended (`battery`); 8% on
+  AC kept running; serious heat kept running with a red *Hot* tag; critical heat ended
+  (`thermal`); heat rules off + critical kept running. (Low Power claiming was already verified in
+  the lid-mode run; here the user's own session held it, so the dev session correctly didn't.)
 - **Testing hooks**: `ACC_SIMULATE_LID=<file>` — the lid reads closed while the file says `closed`;
   `ACC_SIMULATE_OFFLINE=<file>` — the network reads down while it says `offline`;
-  `ACC_TMUX_BIN=<path>` — a stand-in tmux. The nudge was verified against a logging fake tmux:
+  `ACC_TMUX_BIN=<path>` — a stand-in tmux. `ACC_SIMULATE_BATTERY=<file>` — `<percent> battery|ac`;
+  `ACC_SIMULATE_THERMAL=<file>` — `nominal|fair|serious|critical`; `ACC_FLOOR_POLL_MS` — faster
+  battery/heat poll; `ACC_SIMULATE_DISPLAY=<file>` — `external|internal`. The nudge was verified against a logging fake tmux:
   marked idle pane nudged (no Enter), unmarked pane skipped before any state read, marked pane in
   copy mode refused, and a 20 s outage nudged nothing. `ACC_EXTRA_BROWSERS=<ids>` adds stand-in
   browsers: a Cocoa test app was relaunched with both flags and its `--profile-directory`; an app
