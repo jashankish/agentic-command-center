@@ -6,6 +6,7 @@ import { homedir, userInfo } from 'os'
 import { basename, join } from 'path'
 import { createHash, randomUUID } from 'crypto'
 import { getAwakeConfig, setAwakeConfig, listRepos } from './store'
+import { safeSend } from './safesend'
 import { getTerminals } from './terminals'
 import { nudgeMarkedPanes } from './tmux'
 import { relaunchUnthrottled, scanThrottledBrowsers, type ThrottledBrowser } from './browsers'
@@ -437,7 +438,7 @@ export function getAwakeState(): AwakeState {
 function push(): void {
   const state = getAwakeState()
   for (const w of BrowserWindow.getAllWindows()) {
-    if (!w.isDestroyed()) w.webContents.send('awake:update', state)
+    safeSend(w, 'awake:update', state)
   }
 }
 
@@ -452,7 +453,7 @@ function revealAwake(): void {
   if (main.isMinimized()) main.restore()
   main.show()
   main.focus()
-  main.webContents.send('awake:open')
+  safeSend(main, 'awake:open')
 }
 
 function notify(title: string, body: string): void {

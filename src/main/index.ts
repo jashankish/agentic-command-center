@@ -6,6 +6,7 @@ import { registerIpc } from './ipc'
 import { invalidateTerminalsCache } from './terminals'
 import { initUsageCredentialWatch } from './usage'
 import { initAwake } from './awake'
+import { safeSend } from './safesend'
 
 // Name the app explicitly so the macOS menu bar (and dock / About panel / the
 // userData directory) read "Agentic Command Center" rather than "Electron".
@@ -141,9 +142,7 @@ function createDockWindow(key: keyof typeof DOCKS): BrowserWindow {
   // open dock reclaim the space.
   win.on('closed', () => {
     dockWindows[key] = null
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send(`${key}:closed`)
-    }
+    safeSend(mainWindow, `${key}:closed`)
     positionDocks()
   })
 
@@ -244,7 +243,7 @@ app.whenReady().then(() => {
   initAgentEvents(join(app.getPath('userData'), 'agent-events'), () => {
     invalidateTerminalsCache()
     for (const w of BrowserWindow.getAllWindows()) {
-      if (!w.isDestroyed()) w.webContents.send('sessions:update')
+      safeSend(w, 'sessions:update')
     }
   }).catch(() => {
     // Event layer is optional — heuristics keep working without it.
@@ -255,7 +254,7 @@ app.whenReady().then(() => {
   // the quota bars recover without waiting for the 2-minute TTL.
   initUsageCredentialWatch(() => {
     for (const w of BrowserWindow.getAllWindows()) {
-      if (!w.isDestroyed()) w.webContents.send('usage:update')
+      safeSend(w, 'usage:update')
     }
   })
 

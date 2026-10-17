@@ -126,6 +126,13 @@ Docker idle freeze rule.
   floors, journal + launchd backstop, agent auto-start / extension, tmux nudge, App Nap, browser
   unthrottling. First production run: a 5-hour lid-mode session in the installed app expired on
   schedule and restored sleep, Low Power Mode, and audio with a clean journal.
+- **v1.6.2** — fixes quitting with a docked panel open: Electron could destroy the main window's
+  webContents before the docks finished closing, so a dock's `closed` handler threw "Object has
+  been destroyed" and the uncaught-exception alert blocked every quit (Dock / ⌘Q / logout / the
+  installer). All main-process sends now go through `safeSend()`. Reproduced on v1.6.1 (docks
+  open + session + quit event → stuck) and verified fixed on the packaged v1.6.2 (exits in 2 s,
+  session restored).
+- **v1.6.1** — the info card's footer shows the app version (`app:version` IPC).
 - **v1.6.0** — everything in v1.5.1 below, on an updated stack: **Electron 44** (Node 24, Chromium
   152), **React 19**, **Vite 8 / electron-vite 6**, **electron-store 12**, **simple-git 4**,
   **TypeScript 7**, **electron-builder 26**. electron-store 12 is ESM-only, so it's bundled into the
