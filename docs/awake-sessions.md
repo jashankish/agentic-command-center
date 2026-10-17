@@ -113,7 +113,14 @@ Docker idle freeze rule.
 - **Live-tested** in the real app (CDP-driven, throwaway profile, `ACC_SIMULATE_LID`): UI start,
   hold-to-end (200 ms ignored, 900 ms ends), lid close/open (mute + SIGSTOP, then restore),
   `kill -9` → backstop restore within 5 s of expiry, `kill -9` + relaunch → takeover, agent-aware
-  extension. Lid mode (`pmset disablesleep`, LPM) awaits an approved admin prompt.
+  extension.
+- **Lid mode, live (2026-10-17):** the real **Set up…** admin prompt installed
+  `/etc/sudoers.d/agentic-command-center` (root:wheel 0440; `sudo -l` lists exactly the four pmset
+  commands). A session set `SleepDisabled 1` (re-read, journaled as ours); simulated lid close turned
+  battery Low Power Mode on and muted, lid open undid both with sleep still held; hold-to-end put
+  `SleepDisabled` back to 0. `kill -9` with the lid closed: the launchd backstop ran
+  `sudo -n pmset -a disablesleep 0` and `-b lowpowermode 0`, unmuted, and retired itself 5 s after
+  expiry.
 - **Testing hooks**: `ACC_SIMULATE_LID=<file>` — the lid reads closed while the file says `closed`;
   `ACC_SIMULATE_OFFLINE=<file>` — the network reads down while it says `offline`;
   `ACC_TMUX_BIN=<path>` — a stand-in tmux. The nudge was verified against a logging fake tmux:
