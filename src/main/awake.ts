@@ -10,6 +10,7 @@ import { getTerminals } from './terminals'
 import { nudgeMarkedPanes } from './tmux'
 import { relaunchUnthrottled, scanThrottledBrowsers, type ThrottledBrowser } from './browsers'
 import type {
+  AppNapOverride,
   AwakeConfig,
   AwakeEndReason,
   AwakeMode,
@@ -67,6 +68,7 @@ interface Runtime {
   lowPowerByUs: boolean
   mutedByUs: boolean
   frozen: FrozenProcess[]
+  appNap: AppNapOverride[]
 }
 
 interface Journal {
@@ -85,11 +87,12 @@ const cleanRuntime = (): Runtime => ({
   sleepDisabledByUs: false,
   lowPowerByUs: false,
   mutedByUs: false,
-  frozen: []
+  frozen: [],
+  appNap: []
 })
 
 const runtimeDirty = (r: Runtime): boolean =>
-  r.sleepDisabledByUs || r.lowPowerByUs || r.mutedByUs || r.frozen.length > 0
+  r.sleepDisabledByUs || r.lowPowerByUs || r.mutedByUs || r.frozen.length > 0 || r.appNap.length > 0
 
 // ---------- process helpers ----------
 
@@ -312,7 +315,12 @@ async function readJournal(): Promise<Journal | null> {
   try {
     const j = JSON.parse(await readFile(journalPath, 'utf8')) as Journal
     if (!j || typeof j !== 'object' || !j.runtime) return null
-    j.runtime = { ...cleanRuntime(), ...j.runtime, frozen: j.runtime.frozen ?? [] }
+    j.runtime = {
+      ...cleanRuntime(),
+      ...j.runtime,
+      frozen: j.runtime.frozen ?? [],
+      appNap: j.runtime.appNap ?? []
+    }
     return j
   } catch {
     return null
@@ -327,6 +335,7 @@ function J(): Journal {
 // ---------- state push ----------
 
 let freezeNames: Record<string, string> = {}
+const appNapNames: Record<string, string> = {}
 
 async function refreshFreezeNames(config: AwakeConfig): Promise<void> {
   const out: Record<string, string> = {}
@@ -360,7 +369,8 @@ export function getAwakeState(): AwakeState {
     restorePending: !j.session && runtimeDirty(j.runtime),
     agentsWorking: live.agentsWorking,
     offlineSince: live.offlineSince ? new Date(live.offlineSince).toISOString() : null,
-    throttledBrowsers: live.throttledBrowsers
+    throttledBrowsers: live.throttledBrowsers,
+    appNapApps: j.runtime.appNap.map((o) => appNapNames[o.bundleId] ?? o.bundleId)
   }
 }
 
@@ -493,8 +503,24 @@ while [ "$i" -lt "\${N:-0}" ]; do
   i=$((i + 1))
 done
 
+N=$(get runtime.appNap)
+i=0
+while [ "$i" -lt "\${N:-0}" ]; do
+  ID=$(get "runtime.appNap.$i.bundleId")
+  PREV=$(get "runtime.appNap.$i.previous")
+  case "$ID" in
+    ''|-*|*/*|NSGlobalDomain) ;;
+    *)
+      if [ "$PREV" = "true" ]; then /usr/bin/defaults write "$ID" NSAppSleepDisabled -bool YES || ok=0
+      elif [ "$PREV" = "false" ]; then /usr/bin/defaults write "$ID" NSAppSleepDisabled -bool NO || ok=0
+      else /usr/bin/defaults delete "$ID" NSAppSleepDisabled >/dev/null 2>&1
+      fi ;;
+  esac
+  i=$((i + 1))
+done
+
 [ "$ok" = 1 ] || exit 1
-printf '%s\\n' '{"version":1,"session":null,"mode":null,"endsAtEpoch":0,"appPid":0,"appStartedAt":"","runtime":{"sleepDisabledByUs":false,"lowPowerByUs":false,"mutedByUs":false,"frozen":[]}}' > "$J.tmp" && /bin/mv "$J.tmp" "$J"
+printf '%s\\n' '{"version":1,"session":null,"mode":null,"endsAtEpoch":0,"appPid":0,"appStartedAt":"","runtime":{"sleepDisabledByUs":false,"lowPowerByUs":false,"mutedByUs":false,"frozen":[],"appNap":[]}}' > "$J.tmp" && /bin/mv "$J.tmp" "$J"
 retire
 `
 
@@ -682,6 +708,95 @@ async function evaluateFloors(): Promise<void> {
     (live.onBattery && pct !== null && pct < c.lowPowerFloor) ||
     (c.thermalRules && live.thermal === 'serious')
   await setLowPower(want).catch(() => undefined)
+}
+
+// ---------- App Nap ----------
+
+/** Agent apps App Nap must not throttle mid-session (Insomnia's list). */
+const AGENT_APPS = [
+  'com.apple.Terminal',
+  'com.googlecode.iterm2',
+  'com.mitchellh.ghostty',
+  'dev.warp.Warp-Stable',
+  'com.microsoft.VSCode',
+  'com.todesktop.230313mzl4w4u92', // Cursor
+  'dev.zed.Zed',
+  'com.google.antigravity',
+  'com.anthropic.claudefordesktop',
+  'com.openai.codex',
+  'com.t3tools.t3code',
+  'com.conductor.app',
+  'com.google.Chrome',
+  'org.chromium.Chromium',
+  'company.thebrowser.Browser',
+  'com.docker.docker',
+  'io.tailscale.ipn.macsys',
+  'ai.elementlabs.lmstudio',
+  'com.electron.ollama'
+]
+
+/** Only plain bundle ids — never NSGlobalDomain, a path, or a flag. */
+const safeDomain = (id: string): boolean => /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(id) && id !== 'NSGlobalDomain'
+
+function agentApps(): string[] {
+  // Test hook: ACC_APPNAP_APPS replaces the list with stand-in ids.
+  const override = process.env.ACC_APPNAP_APPS
+  return override ? override.split(',').map((s) => s.trim()).filter(Boolean) : AGENT_APPS
+}
+
+async function readSleepDisabled(id: string): Promise<boolean | null | 'error'> {
+  const r = await run('/usr/bin/defaults', ['read', id, 'NSAppSleepDisabled'], 5000)
+  if (r.ok) return r.stdout.trim() === '1'
+  return /does not exist/.test(r.stderr) ? null : 'error'
+}
+
+async function writeSleepDisabled(id: string, value: boolean | null): Promise<boolean> {
+  const args =
+    value === null
+      ? ['delete', id, 'NSAppSleepDisabled']
+      : ['write', id, 'NSAppSleepDisabled', '-bool', value ? 'YES' : 'NO']
+  return (await run('/usr/bin/defaults', args, 5000)).ok
+}
+
+/** Turn App Nap off for each installed agent app, journaling the previous
+ *  value first. Apps already set to YES are skipped — nothing to put back. */
+async function holdAppNap(): Promise<void> {
+  for (const id of agentApps()) {
+    if (!safeDomain(id) || J().runtime.appNap.some((o) => o.bundleId === id)) continue
+    const path = await bundlePath(id)
+    if (!path) continue // not installed: never create a preferences domain for it
+    appNapNames[id] = basename(path, '.app')
+    const previous = await readSleepDisabled(id)
+    if (previous === 'error' || previous === true) continue
+    try {
+      await writeJournal({ ...J(), runtime: { ...J().runtime, appNap: [...J().runtime.appNap, { bundleId: id, previous }] } })
+    } catch {
+      continue // unrecorded changes are never made
+    }
+    if (!(await writeSleepDisabled(id, true))) {
+      await writeJournal({
+        ...J(),
+        runtime: { ...J().runtime, appNap: J().runtime.appNap.filter((o) => o.bundleId !== id) }
+      }).catch(() => undefined)
+    }
+  }
+}
+
+/** Put each recorded value back; an entry is cleared only once that worked. */
+async function releaseAppNap(): Promise<boolean> {
+  let ok = true
+  for (const o of [...J().runtime.appNap]) {
+    if (await writeSleepDisabled(o.bundleId, o.previous)) {
+      await writeJournal({
+        ...J(),
+        runtime: { ...J().runtime, appNap: J().runtime.appNap.filter((x) => x.bundleId !== o.bundleId) }
+      })
+    } else {
+      ok = false
+    }
+  }
+  if (!ok) warn("Some apps' App Nap settings couldn't be put back; the next session end or launch retries.")
+  return ok
 }
 
 // ---------- browser throttling ----------
@@ -885,6 +1000,7 @@ export function startSession(seconds: number): Promise<AwakeState> {
     await armBackstop().catch(() =>
       warn('The crash-recovery backstop could not be armed; keep the app open until the session ends.')
     )
+    if (getAwakeConfig().disableAppNapForAgents) await holdAppNap().catch(() => undefined)
     live.lidClosed = await readLidClosed()
     const b = await readBattery()
     live.onBattery = b.onBattery
@@ -977,6 +1093,7 @@ async function restore(): Promise<boolean> {
   })
   await unmute().catch(() => undefined)
   if (J().runtime.mutedByUs) complete = false
+  if (J().runtime.appNap.length > 0 && !(await releaseAppNap().catch(() => false))) complete = false
   if (J().runtime.lowPowerByUs) {
     await setLowPower(false).catch(() => undefined)
     if (J().runtime.lowPowerByUs) complete = false

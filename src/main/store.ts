@@ -19,7 +19,8 @@ const DEFAULT_AWAKE_CONFIG: AwakeConfig = {
   thermalRules: true,
   extendWhileAgentsWork: false,
   tmuxNudge: false,
-  tmuxNudgePressesEnter: false
+  tmuxNudgePressesEnter: false,
+  disableAppNapForAgents: false
 }
 
 interface StoreSchema {

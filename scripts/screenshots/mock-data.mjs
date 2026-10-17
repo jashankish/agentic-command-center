@@ -269,7 +269,7 @@ export function buildData() {
         darkenDisplayOnLidClose: true, muteOnLidClose: true, lowPowerOnLidClose: true,
         freezeList: ['com.tinyspeck.slackmacgap', 'net.whatsapp.WhatsApp', 'com.hnc.Discord'],
         lowPowerFloor: 40, endFloor: 10, thermalRules: true, extendWhileAgentsWork: true,
-        tmuxNudge: true, tmuxNudgePressesEnter: false
+        tmuxNudge: true, tmuxNudgePressesEnter: false, disableAppNapForAgents: true
       },
       freezeApps: [
         { bundleId: 'com.tinyspeck.slackmacgap', name: 'Slack' },
@@ -277,7 +277,8 @@ export function buildData() {
         { bundleId: 'com.hnc.Discord', name: 'Discord' }
       ],
       lastEnd: null, restorePending: false, agentsWorking: 2, offlineSince: null,
-      throttledBrowsers: [{ bundleId: 'com.google.Chrome', name: 'Google Chrome' }]
+      throttledBrowsers: [{ bundleId: 'com.google.Chrome', name: 'Google Chrome' }],
+      appNapApps: ['Terminal', 'iTerm', 'Cursor', 'Claude']
     }
   }
 }

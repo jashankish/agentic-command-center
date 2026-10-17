@@ -269,6 +269,12 @@ function SettingsView({
         hint="When the timer runs out but a Claude session is still mid-turn, keep going 15 minutes at a time (up to 12 hours extra)."
         onChange={(v) => set({ extendWhileAgentsWork: v })}
       />
+      <Toggle
+        on={c.disableAppNapForAgents}
+        label="Keep agent apps out of App Nap"
+        hint="Sets NSAppSleepDisabled for installed terminals, editors and agent apps during a session and puts each previous value back afterwards. Applies to apps launched while it's on."
+        onChange={(v) => set({ disableAppNapForAgents: v })}
+      />
 
       <div className="awake-group-label">After a network outage</div>
       <Toggle
@@ -626,6 +632,11 @@ export default function AwakeWidget({ state, open, onOpenChange }: Props): JSX.E
                         }
                       >
                         Offline {shortDuration(Math.max(60, (now - new Date(state.offlineSince).getTime()) / 1000))}
+                      </span>
+                    )}
+                    {state.appNapApps.length > 0 && (
+                      <span className="awake-stat on" title={state.appNapApps.join('\n')}>
+                        App Nap off · {state.appNapApps.length}
                       </span>
                     )}
                     {state.lowPowerByUs && <span className="awake-stat on">Low Power</span>}

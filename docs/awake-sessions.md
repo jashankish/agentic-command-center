@@ -16,6 +16,7 @@ Electron main process; the UI follows the command center's own glass/hairline/ac
 | Health bar | `Awake · <countdown>` chip while a session runs (accent = `lid`, amber = `assertion`); `Awake restore pending` when `restorePending`. |
 | Lid close | Only in `lid` mode (or under `ACC_SIMULATE_LID`) — in assertion mode the Mac sleeps on close anyway. Sleep the display (`pmset displaysleepnow`, best effort), mute (osascript), Low Power Mode (`pmset -b lowpowermode 1`), SIGSTOP the freeze list. Lid open undoes all of it. |
 | Agents | Opt-in `extendWhileAgentsWork`: at expiry, if the terminals snapshot shows any Claude session in `working`, extend 15 min (`autoExtendedBy`), capped at 12 h total; first extension notifies. Waiting states (`permission`, `input`) don't count. |
+| App Nap | Opt-in `disableAppNapForAgents`: at start, for each installed agent app (`AGENT_APPS`, Insomnia's list; `bundlePath()` must resolve — never creates a domain), `defaults read <id> NSAppSleepDisabled` → journal `runtime.appNap[{bundleId, previous: true/false/null}]` → `defaults write … -bool YES`. Already-YES and unreadable apps skipped; ids limited to `[A-Za-z0-9._-]`, never `NSGlobalDomain`. `releaseAppNap()` (in `restore()`) writes back or `defaults delete`s, clearing each entry only after success. The backstop does the same with `plutil` + `defaults`. |
 | Outage nudge | Opt-in `tmuxNudge`: `net.isOnline()` polled every 5 s during a session (`offlineSince` → amber *Offline* tag). Back online after ≥ 90 s → `nudgeMarkedPanes()` (`src/main/tmux.ts`): `list-panes -a`, then per pane `show-options -qpv @insomnia-nudge` must be exactly `on`, `display-message` flags `dead/in_mode/input_off` must be `0 0 0`, the session must still be the same, then `send-keys -l continue` (+ `Enter` only with `tmuxNudgePressesEnter`). Notifies with the count. |
 | Browsers | `src/main/browsers.ts`: `scanThrottledBrowsers()` (lsappinfo pid → `ps -ww -o args=`, both `UNTHROTTLE_FLAGS` must be present) for Chrome, Chromium, Arc, Comet — refreshed on popover open and every 60 s in a session. `relaunchUnthrottled()` after an inline confirm: read args twice (same `lstart`), AppleScript quit, wait ≤ 10 s (else launch nothing), `open -b <id> --args <flags> <profile args>`, wait ≤ 5 s. Card shows when `lidReady` (idle) or `mode === 'lid'` (running). |
 | Floors | On battery: LPM below `lowPowerFloor` (40), end below `endFloor` (10, 0 = off). Heat rules: LPM at `serious`, end at `critical`. |
@@ -103,9 +104,8 @@ commands. Removal is refused while a session or unfinished restore exists.
 
 ## 7. Not ported from Insomnia
 
-iPhone-hotspot failover, App Nap
-overrides, private-framework brightness save/restore (display sleep is used instead), Docker idle
-freeze rule.
+iPhone-hotspot failover, private-framework brightness save/restore (display sleep is used instead),
+Docker idle freeze rule.
 
 ## 8. Delivery record
 
@@ -120,7 +120,10 @@ freeze rule.
   copy mode refused, and a 20 s outage nudged nothing. `ACC_EXTRA_BROWSERS=<ids>` adds stand-in
   browsers: a Cocoa test app was relaunched with both flags and its `--profile-directory`; an app
   that ignores quit was left alone with nothing launched; a non-browser id was refused. Real Chrome
-  was only scanned (correctly reported throttled), never relaunched.
+  was only scanned (correctly reported throttled), never relaunched. `ACC_APPNAP_APPS=<ids>`
+  replaces the agent list: a domain preset to NO and one with no key both went to YES and back (NO,
+  and deleted), an uninstalled id was never written, and after `kill -9` the backstop restored both
+  within 3 s of expiry.
 
 - Branch `worktree-feature-insomnia-awake`. Screenshots via the headless harness:
   `npm run screenshots awake` (`screenshot-awake.png`, `screenshot-awake-settings.png`); the mock

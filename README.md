@@ -105,6 +105,8 @@ rest keeps working.
   (Slack, WhatsApp, Discord by default) — all undone when the lid opens.
 - **Stay awake while agents work** (opt-in) — if the timer runs out while a Claude session in the
   terminals panel is still mid-turn, the session keeps going 15 minutes at a time (12 h cap).
+- **App Nap off for agent apps** (opt-in) — terminals, editors, and agent apps stay unthrottled for
+  the session; each app's previous setting is journaled and put back afterwards.
 - **tmux "continue" nudge** (opt-in) — when the network returns after a 90 s+ outage, types
   `continue` into tmux panes you've marked, so agents stalled on failed API calls retry.
 - **Unthrottled browsers** — spots Chrome / Chromium / Arc / Comet running without the flags that
@@ -492,6 +494,16 @@ by **15 minutes** instead of ending, re-checking each time, up to **12 hours** o
 notification says so the first time. The countdown notes *+Nm for agents* and a tag shows how many
 agents are working. Sessions waiting on you (permission / your turn) don't count — only real work.
 
+**Keep agent apps out of App Nap** — an opt-in rule under ⚙ → *Agents*. For the length of a
+session it sets `NSAppSleepDisabled` for each **installed** agent app — Terminal, iTerm2, Ghostty,
+Warp, VS Code, Cursor, Zed, Antigravity, Claude, ChatGPT/Codex, T3 Code, Conductor, Chrome/Chromium/
+Arc, Docker Desktop, Tailscale, LM Studio, Ollama — so macOS's App Nap can't slow them while they're
+in the background. Each app's previous value (set, unset, or absent) is journaled *before* the
+write, apps already opted out are left alone, and the value is put back when the session ends (the
+crash backstop does it too). macOS reads the key at launch, so it applies to apps opened during the
+session; an *App Nap off · N* tag shows how many are covered. Off, the app never writes another
+app's preferences.
+
 **After a network outage** — an opt-in rule under ⚙. If the network drops during a session (an
 amber *Offline* tag shows how long) and comes back after **90 s or more**, the app types `continue`
 into every tmux pane you've marked, so an agent that gave up on failed API calls carries on. Only
@@ -530,7 +542,7 @@ an *expired* session's changes if the app has crashed, then removes itself.
 
 <p align="center">
   <img src="docs/screenshot-awake.png" alt="The awake popover over the bottom-right corner pill: a 02:48:00 countdown until 8:10 PM with +1h added, a gradient progress bar, +15m/+30m/+1h/+2h/+… add-time chips, lid, battery, and agents-working status tags, a notice offering to relaunch Google Chrome unthrottled, a Lid-close safe badge, and the press-and-hold end control" width="300" />
-  <img src="docs/screenshot-awake-settings.png" alt="Awake settings: a Stay awake while agents work toggle; a toggle to type continue into marked tmux panes after a network outage, with the pane-mark command; toggles to sleep the display, mute audio, and turn on Low Power Mode when the lid closes; a freeze list with Slack, WhatsApp, and Discord; battery floors at 40% and 10%; heat rules; and the lid-close access status" width="300" />
+  <img src="docs/screenshot-awake-settings.png" alt="Awake settings: Stay awake while agents work and Keep agent apps out of App Nap toggles; a toggle to type continue into marked tmux panes after a network outage, with the pane-mark command; toggles to sleep the display, mute audio, and turn on Low Power Mode when the lid closes; a freeze list with Slack, WhatsApp, and Discord; battery floors at 40% and 10%; heat rules; and the lid-close access status" width="300" />
 </p>
 
 ---
@@ -739,6 +751,8 @@ Designed to be safe to open-source and run on any developer's machine:
   backstop exists only while a session or an unfinished restore does. The tmux nudge is off by
   default and only ever types into panes you explicitly marked, never pressing Enter unless asked.
   Browser relaunches happen only after an in-panel confirmation, and never launch a second copy.
+  The App Nap rule is off by default; when on, it only touches installed agent apps' own
+  `NSAppSleepDisabled` key, journaling and restoring each previous value.
 
 ---
 

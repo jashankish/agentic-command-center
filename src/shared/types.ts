@@ -403,6 +403,10 @@ export interface AwakeConfig {
   tmuxNudge: boolean
   /** Press Enter after `continue` (also submits anything already typed). */
   tmuxNudgePressesEnter: boolean
+  /** During a session, set `NSAppSleepDisabled` on installed agent apps
+   *  (terminals, editors, Claude…) so App Nap can't throttle them; the
+   *  previous values are put back when the session ends. */
+  disableAppNapForAgents: boolean
 }
 
 /** A process the lid-close freeze stopped, with the identity that proves it. */
@@ -421,6 +425,13 @@ export interface AwakeSession {
   extendedBy: number[]
   /** Seconds added automatically because agents were still working. */
   autoExtendedBy?: number[]
+}
+
+/** An App Nap override to undo: the app's `NSAppSleepDisabled` before the
+ *  session (null = the key was absent, so it is deleted again). */
+export interface AppNapOverride {
+  bundleId: string
+  previous: boolean | null
 }
 
 /** How sleep is being held for the current session. */
@@ -471,4 +482,6 @@ export interface AwakeState {
   /** Running Chromium browsers without the flags that stop them throttling
    *  hidden (lid-closed) windows. */
   throttledBrowsers: Array<{ bundleId: string; name: string }>
+  /** Agent apps whose App Nap is currently held off by this session. */
+  appNapApps: string[]
 }
