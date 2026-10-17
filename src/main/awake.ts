@@ -1284,7 +1284,14 @@ export function retryRestore(): Promise<AwakeState> {
 export async function updateAwakeConfig(patch: Partial<AwakeConfig>): Promise<AwakeState> {
   const config = setAwakeConfig(patch)
   await refreshFreezeNames(config)
-  if (J().session) await exclusive(evaluateFloors)
+  if (J().session) {
+    await exclusive(async () => {
+      // Flipping the App Nap rule mid-session takes effect now, not next session.
+      if (config.disableAppNapForAgents) await holdAppNap().catch(() => undefined)
+      else if (J().runtime.appNap.length > 0) await releaseAppNap().catch(() => undefined)
+      await evaluateFloors()
+    })
+  }
   push()
   return getAwakeState()
 }
