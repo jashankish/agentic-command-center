@@ -608,7 +608,9 @@ within 5 s, you're told. Nothing is ever relaunched automatically.
 #### Battery, heat & recovery
 
 **Battery & heat** — on battery, Low Power Mode below **40%** and the session ends below **10%**
-(0 turns the end off); heat rules turn on Low Power Mode at *serious* and end at *critical*.
+(0 turns the end off); heat rules turn on Low Power Mode at *serious* and end at *critical*. A
+session won't **start** in either state — the popover says why (plug in, lower the limit, or let
+the Mac cool) instead of starting one that would end a moment later.
 
 **Recovery** — every change is written to `awake/journal.json` *before* it is made. On launch the
 app resumes a session still in progress or undoes what an earlier run left changed; a failed

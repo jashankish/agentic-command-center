@@ -1011,6 +1011,25 @@ export function startSession(seconds: number, auto = false): Promise<AwakeState>
     if (J().session) return extendNow(seconds)
     if (runtimeDirty(J().runtime)) await restore()
     clearWarnings()
+    // Don't start a session the floors would end a moment later — say why instead.
+    const b0 = await readBattery()
+    live.onBattery = b0.onBattery
+    live.batteryPercent = b0.percent
+    const t0 = await readSimulatedThermal()
+    if (t0) live.thermal = t0
+    const floors = getAwakeConfig()
+    if (floors.thermalRules && live.thermal === 'critical') {
+      warn("The Mac is at critical heat, so no session was started. Let it cool down first.")
+      push()
+      return getAwakeState()
+    }
+    if (b0.onBattery && floors.endFloor > 0 && b0.percent !== null && b0.percent < floors.endFloor) {
+      warn(
+        `Battery is at ${b0.percent}%, below the ${floors.endFloor}% end limit, so no session was started. Plug in, or lower the limit under ⚙.`
+      )
+      push()
+      return getAwakeState()
+    }
     const secs = Math.round(Math.min(MAX_SESSION_S, Math.max(MIN_SESSION_S, seconds)))
     const now = Date.now()
     const session: AwakeSession = {
