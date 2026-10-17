@@ -492,4 +492,7 @@ export interface AwakeState {
   throttledBrowsers: Array<{ bundleId: string; name: string }>
   /** Agent apps whose App Nap is currently held off by this session. */
   appNapApps: string[]
+  /** Another running copy of the app owns this profile's awake journal (its
+   *  pid); this copy is passive and changes nothing. */
+  managedElsewhere: number | null
 }

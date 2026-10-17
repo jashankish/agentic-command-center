@@ -139,6 +139,10 @@ Docker idle freeze rule.
     resumes immediately (`updateAwakeConfig()`, `resumeFrozen(keep)`).
   - **Clickable notifications:** clicking an awake notification brings the main window forward with
     the popover open (`revealAwake()` → `awake:open` → `onAwakeOpen`).
+  - **One owner per profile:** a second running copy of the app on the same profile (e.g. `npm run
+    dev` beside the installed app) stays passive — it no longer takes over the live session on
+    launch and then ends it on quit. `passiveOwner` keeps an empty in-memory journal; journal
+    writes, the backstop, start/extend/retry, auto-start, and the quit-restore all stand down.
   - **Backstop isolation:** the launchd backstop label is per-profile for non-default profiles, so a
     dev build or test profile ending its session can't remove the installed app's crash protection.
   - Dev: `npm run fix:electron` re-signs the revoked dev Electron (`5987d3f`).
@@ -173,6 +177,10 @@ Docker idle freeze rule.
   user's job was untouched (same run count, still pointing at their journal). `app.quit()` mid-
   session ended the dev session first — journal cleared, its backstop removed, its assertion
   released — and left the user's sleep hold in place.
+- **Passive second copy, live (2026-10-17):** a dev build on the user's *real* profile, beside the
+  installed app's live 24 h session: reported `managedElsewhere=2711`, refused start, ignored end,
+  and quitting it left the user's journal owner, session id, `SleepDisabled 1`, and backstop all
+  unchanged. (Before this fix it would have taken the session over on launch and ended it on quit.)
 - **Testing hooks**: `ACC_SIMULATE_LID=<file>` — the lid reads closed while the file says `closed`;
   `ACC_SIMULATE_OFFLINE=<file>` — the network reads down while it says `offline`;
   `ACC_TMUX_BIN=<path>` — a stand-in tmux. `ACC_SIMULATE_BATTERY=<file>` — `<percent> battery|ac`;

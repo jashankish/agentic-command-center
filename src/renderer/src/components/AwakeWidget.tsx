@@ -708,7 +708,11 @@ export default function AwakeWidget({ state, open, onOpenChange }: Props): JSX.E
                       </button>
                     ))}
                   </div>
-                  <button className="awake-start" disabled={draftSecs < 60} onClick={() => start(draftSecs)}>
+                  <button
+                    className="awake-start"
+                    disabled={draftSecs < 60 || state.managedElsewhere !== null}
+                    onClick={() => start(draftSecs)}
+                  >
                     {draftSecs >= 60
                       ? `Stay awake until ${endLabel(new Date(now + draftSecs * 1000), new Date(now))}`
                       : 'Choose how long to stay awake'}

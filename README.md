@@ -625,6 +625,10 @@ While a session runs, a **launchd backstop**
 an *expired* session's changes if the app has crashed — sleep, Low Power Mode, audio, frozen apps,
 App Nap — then removes itself.
 
+**One copy at a time** — if a second copy of the app runs on the same profile (say, a dev build
+beside the installed app), it leaves the awake session to the copy that owns it and says so,
+rather than taking it over or ending it when it quits.
+
 > Use a stable, well-ventilated surface — never a closed bag. A running timer is not a safety
 > guarantee.
 

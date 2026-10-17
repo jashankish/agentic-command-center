@@ -274,7 +274,7 @@ export function buildData() {
         { bundleId: 'com.hnc.Discord', name: 'Discord' }
       ],
       lastEnd: { at: ago(9 * HR), reason: 'expired' }, restorePending: false,
-      agentsWorking: 0, offlineSince: null, throttledBrowsers: [], appNapApps: []
+      agentsWorking: 0, offlineSince: null, throttledBrowsers: [], appNapApps: [], managedElsewhere: null
     },
     // A keep-awake session 1h12m in, 2h48m to go, on battery with the lid open.
     awake: {
@@ -296,7 +296,7 @@ export function buildData() {
         { bundleId: 'net.whatsapp.WhatsApp', name: 'WhatsApp' },
         { bundleId: 'com.hnc.Discord', name: 'Discord' }
       ],
-      lastEnd: null, restorePending: false, agentsWorking: 2, offlineSince: null,
+      lastEnd: null, restorePending: false, agentsWorking: 2, offlineSince: null, managedElsewhere: null,
       throttledBrowsers: [{ bundleId: 'com.google.Chrome', name: 'Google Chrome' }],
       appNapApps: ['Terminal', 'iTerm', 'Cursor', 'Claude']
     }

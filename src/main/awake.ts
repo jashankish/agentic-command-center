@@ -303,6 +303,13 @@ let batteryTimer: NodeJS.Timeout | null = null
 let netTimer: NodeJS.Timeout | null = null
 let appStartedAt = ''
 let quitting = false
+/** Pid of another running copy that owns this profile's journal. While set,
+ *  this copy is passive: it never writes the journal, never touches the
+ *  backstop, and keeps an empty journal in memory so no handler acts on the
+ *  other copy's session. */
+let passiveOwner: number | null = null
+const passiveMessage = (pid: number): string =>
+  `Another copy of the command center (pid ${pid}) is running awake sessions for this profile, so this copy won't change anything. Use that one, or quit it and relaunch this one.`
 /** Serializes start / extend / end / lid / floor work so they never interleave. */
 let chain: Promise<unknown> = Promise.resolve()
 
@@ -351,6 +358,7 @@ function emptyJournal(): Journal {
 /** Atomic, owner-only journal write. Throws so callers never change what
  *  they could not record. */
 async function writeJournal(j: Journal): Promise<void> {
+  if (passiveOwner !== null) throw new Error('awake journal is owned by another running copy')
   j.appPid = process.pid
   j.appStartedAt = appStartedAt
   const tmp = `${journalPath}.${process.pid}.tmp`
@@ -419,7 +427,8 @@ export function getAwakeState(): AwakeState {
     agentsWorking: live.agentsWorking,
     offlineSince: live.offlineSince ? new Date(live.offlineSince).toISOString() : null,
     throttledBrowsers: live.throttledBrowsers,
-    appNapApps: j.runtime.appNap.map((o) => appNapNames[o.bundleId] ?? o.bundleId)
+    appNapApps: j.runtime.appNap.map((o) => appNapNames[o.bundleId] ?? o.bundleId),
+    managedElsewhere: passiveOwner
   }
 }
 
@@ -596,6 +605,7 @@ const xml = (s: string): string =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
 async function armBackstop(): Promise<void> {
+  if (passiveOwner !== null) return
   const script = join(dir, 'backstop.sh')
   await writeFile(script, BACKSTOP_SH, { mode: 0o700 })
   await chmod(script, 0o700)
@@ -623,6 +633,7 @@ async function armBackstop(): Promise<void> {
 }
 
 async function disarmBackstop(): Promise<void> {
+  if (passiveOwner !== null) return
   const uid = String(process.getuid?.() ?? userInfo().uid)
   await run('/bin/launchctl', ['bootout', `gui/${uid}/${backstopLabel}`], 10_000)
   await rm(plistPath(), { force: true })
@@ -1030,8 +1041,17 @@ function releaseAssertion(): void {
   blockerId = null
 }
 
+/** While passive, refuse an action with the explanation; true = refused. */
+function refusePassive(): boolean {
+  if (passiveOwner === null) return false
+  warn(passiveMessage(passiveOwner))
+  push()
+  return true
+}
+
 export function startSession(seconds: number, auto = false): Promise<AwakeState> {
   return exclusive(async () => {
+    if (refusePassive()) return getAwakeState()
     if (J().session) return extendNow(seconds)
     if (runtimeDirty(J().runtime)) await restore()
     clearWarnings()
@@ -1192,7 +1212,7 @@ function expire(): Promise<AwakeState> {
 }
 
 export function extendSession(seconds: number): Promise<AwakeState> {
-  return exclusive(() => extendNow(seconds))
+  return exclusive(async () => (refusePassive() ? getAwakeState() : extendNow(seconds)))
 }
 
 /** Undo everything the journal says this app changed. Leaves an entry in
@@ -1269,6 +1289,7 @@ let autoSuppressed = false
  *  extends while they keep working. Ending it by hand stands until every
  *  agent has gone idle, so the watcher never fights the user. */
 async function autoStartTick(): Promise<void> {
+  if (passiveOwner !== null) return
   if (!getAwakeConfig().autoStartWithAgents) {
     autoSuppressed = false
     return
@@ -1298,6 +1319,7 @@ export function dismissAwakeWarnings(): AwakeState {
 
 export function retryRestore(): Promise<AwakeState> {
   return exclusive(async () => {
+    if (refusePassive()) return getAwakeState()
     clearWarnings()
     if (await restore()) await disarmBackstop().catch(() => undefined)
     push()
@@ -1367,6 +1389,20 @@ export async function initAwake(): Promise<void> {
   powerMonitor.on('on-ac', () => void pollBattery())
 
   const found = await readJournal()
+  // Another running copy (dev build, second launch) owns this journal: stay
+  // passive rather than taking over — or, on quit, ending — its session.
+  if (
+    found &&
+    found.appPid > 0 &&
+    found.appPid !== process.pid &&
+    found.appStartedAt &&
+    (await processStart(found.appPid)) === found.appStartedAt
+  ) {
+    passiveOwner = found.appPid
+    journal = emptyJournal()
+    warn(passiveMessage(found.appPid))
+    return
+  }
   journal = found ?? emptyJournal()
   const b = await readBattery()
   live.onBattery = b.onBattery
