@@ -1699,6 +1699,16 @@ body {
   margin-top: 16px;
 }
 
+/* App version in the info card's footer, opposite "Got it". */
+.info-version {
+  margin-right: auto;
+  align-self: center;
+  font-size: 11px;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+  user-select: text;
+}
+
 .dialog-actions button {
   font: inherit;
   font-size: 12.5px;

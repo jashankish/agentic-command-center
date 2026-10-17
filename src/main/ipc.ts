@@ -131,6 +131,7 @@ export function registerIpc(): void {
   ipcMain.handle('awake:resolveApp', (_e, input: string) => resolveApp(String(input)))
   ipcMain.handle('awake:relaunchBrowser', (_e, bundleId: string) => relaunchBrowser(String(bundleId)))
 
+  ipcMain.handle('app:version', () => app.getVersion())
   ipcMain.handle('view:get', () => getViewMode())
   ipcMain.handle('view:set', (_e, mode: ViewMode) => setViewMode(mode))
 

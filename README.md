@@ -457,7 +457,8 @@ moment the local day rolls over so the newest column appears right after midnigh
 
 The **ℹ️** button opens a scrollable help dialog that renders the *actual* icons next to plain
 descriptions for every toolbar button, status color, CI badge, card chip, quick action, and the
-awake-session pill and badges — plus a full explanation of the cost logic above. It's the fastest way for a new user to learn the UI.
+awake-session pill and badges — plus a full explanation of the cost logic above. Its footer shows
+the installed **version**. It's the fastest way for a new user to learn the UI.
 
 <p align="center">
   <img src="docs/screenshot-info.png" alt="Info card dialog explaining every icon, status color, the awake-session pill and badges, and the cost calculation" width="420" />

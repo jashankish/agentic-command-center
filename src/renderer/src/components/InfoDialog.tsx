@@ -1,4 +1,5 @@
 import type { JSX } from 'react'
+import { useEffect, useState } from 'react'
 import {
   IconSearch,
   IconClipboard,
@@ -45,6 +46,11 @@ const swatch = (color: string): JSX.Element => <span className={`legend-dot dot-
 const glyph = (text: string, cls = ''): JSX.Element => <span className={`legend-glyph ${cls}`}>{text}</span>
 
 export default function InfoDialog({ onClose }: { onClose: () => void }): JSX.Element {
+  const [version, setVersion] = useState<string | null>(null)
+  useEffect(() => {
+    window.api.getVersion().then(setVersion)
+  }, [])
+
   const toolbar: Row[] = [
     { icon: <IconSearch />, label: 'Command palette (⌘K)', desc: 'Search to jump to a repo or run any action.' },
     { icon: <IconClipboard />, label: 'Standup digest', desc: 'Your commits across all repos for Today / 24h / 7 days — copyable.' },
@@ -239,6 +245,7 @@ export default function InfoDialog({ onClose }: { onClose: () => void }): JSX.El
         </div>
 
         <div className="dialog-actions">
+          {version && <span className="info-version">Agentic Command Center v{version}</span>}
           <button className="primary" onClick={onClose}>
             Got it
           </button>

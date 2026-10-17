@@ -1,3 +1,4 @@
+import { readFileSync } from 'fs'
 // Fake, PII-free dataset that backs every README screenshot.
 //
 // This is the file to edit when a feature changes what a panel shows. It is the
@@ -256,6 +257,8 @@ export function buildData() {
       previewDetailed: '{ "hooks": { "SessionStart": [ … ], "PreToolUse": [ … ], "PostToolUse": [ … ] } }'
     },
     panelPrefs: { notifyPermission: true, notifyInput: false, notifyStale: true, showPlainTerminals: true },
+    // Shown in the info card's footer; read from package.json so it tracks releases.
+    version: JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')).version,
     // No session yet and lid-close access not set up: the start view a new user sees.
     awakeIdle: {
       session: null, mode: null, lidReady: false, ruleOwned: false, lidClosed: false, clamshell: false,

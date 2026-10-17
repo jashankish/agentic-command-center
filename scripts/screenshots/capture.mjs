@@ -70,6 +70,7 @@ window.api = (function () {
     getViewMode: async () => viewMode,
     setViewMode: async (m) => (viewMode = m),
     isPinned: async () => true,
+    getVersion: async () => D.version,
     togglePin: async () => true,
     toggleFeed: async () => false,
     toggleTerminals: async () => false,

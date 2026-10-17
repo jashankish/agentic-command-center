@@ -56,6 +56,8 @@ const api = {
 
   isPinned: (): Promise<boolean> => ipcRenderer.invoke('window:isPinned'),
   togglePin: (): Promise<boolean> => ipcRenderer.invoke('window:togglePin'),
+  // The running app's version (package.json at build time), for the info card.
+  getVersion: (): Promise<string> => ipcRenderer.invoke('app:version'),
   getViewMode: (): Promise<ViewMode> => ipcRenderer.invoke('view:get'),
   setViewMode: (mode: ViewMode): Promise<ViewMode> => ipcRenderer.invoke('view:set', mode),
 
