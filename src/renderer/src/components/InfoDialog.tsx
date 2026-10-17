@@ -94,7 +94,8 @@ export default function InfoDialog({ onClose }: { onClose: () => void }): JSX.El
     { icon: <IconEye open />, label: 'Open eye + countdown', desc: 'The Mac is held awake until the timer runs out. Click to add time or end it.' },
     { icon: glyph('LID-CLOSE SAFE', 'chip-server'), label: 'Lid-close safe', desc: 'Closing the lid will not sleep the Mac (pmset disablesleep, via the one-time setup).' },
     { icon: glyph('LID OPEN ONLY', 'chip-attn'), label: 'Lid open only', desc: 'Lid-close access is not set up; the session holds only while the lid is open.' },
-    { icon: glyph('■'), label: 'Hold to end', desc: 'Press and hold until the red ring closes — a quick click does nothing.' }
+    { icon: glyph('Clamshell'), label: 'Clamshell', desc: 'Lid closed with an external display — you’re using the Mac, so nothing is muted, frozen, or slowed.' },
+    { icon: glyph('■'), label: 'Hold to end', desc: 'Press and hold until the red ring closes (or hold Space / Enter) — a quick click does nothing.' }
   ]
 
   return (
@@ -131,7 +132,8 @@ export default function InfoDialog({ onClose }: { onClose: () => void }): JSX.El
           <Legend rows={awake} />
           <p className="info-note">
             While a session runs and the lid is closed, the display sleeps, audio mutes, Low Power
-            Mode turns on, and apps on the freeze list pause — all undone when the lid opens. On
+            Mode turns on, and apps on the freeze list pause — all undone when the lid opens, and
+            skipped entirely when an external display is attached (clamshell). On
             battery it switches to Low Power Mode below 40% and ends below 10%. Settings live under
             the ⚙ in the awake popover — including <strong>Start automatically when agents work</strong>,
             which starts a session as soon as a Claude session is working, and{' '}
