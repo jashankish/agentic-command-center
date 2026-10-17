@@ -701,8 +701,11 @@ floors). They live in the OS user-data directory as JSON:
 ```
 
 - **Favorites & groups** — set from each card (★ and the `# group` chip).
-- **Export / Import settings** — via the command palette. Exports the repo list, groups, and view
-  mode to a `.json` file you choose; import replaces them — handy for moving between machines.
+- **Export / Import settings** — via the command palette. Exports the repo list, groups, view mode,
+  and **awake-session settings** (agent rules, lid-close actions, freeze list, battery floors) to a
+  `.json` file you choose; import replaces them — handy for moving between machines. A running
+  session, its journal, and the lid-close sudoers rule are never exported — set up lid-close access
+  on each Mac.
 
 Two caches also live beside it: `summary-cache.json` (the activity feed's AI summaries, keyed by
 commit hash so the on-device model is never asked twice) and, with the exact-states hooks

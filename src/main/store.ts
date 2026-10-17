@@ -131,14 +131,36 @@ export interface Settings {
   repos: string[]
   viewMode: ViewMode
   repoMeta: Record<string, RepoMeta>
+  /** Awake-session settings (rules, floors, freeze list) — never session state. */
+  awakeConfig?: AwakeConfig
 }
 
 export function exportSettings(): Settings {
   return {
     repos: store.get('repos'),
     viewMode: store.get('viewMode'),
-    repoMeta: store.get('repoMeta')
+    repoMeta: store.get('repoMeta'),
+    awakeConfig: getAwakeConfig()
   }
+}
+
+/** Keep only known awake keys whose type matches the default, so an old or
+ *  hand-edited export can't smuggle in anything else. */
+function sanitizeAwakeConfig(raw: unknown): Partial<AwakeConfig> {
+  if (!raw || typeof raw !== 'object') return {}
+  const src = raw as Record<string, unknown>
+  const out: Record<string, unknown> = {}
+  for (const [key, def] of Object.entries(DEFAULT_AWAKE_CONFIG)) {
+    const v = src[key]
+    if (Array.isArray(def)) {
+      if (Array.isArray(v)) {
+        out[key] = v.filter((id) => typeof id === 'string' && /^[A-Za-z0-9.-]+$/.test(id))
+      }
+    } else if (typeof v === typeof def) {
+      out[key] = v
+    }
+  }
+  return out as Partial<AwakeConfig>
 }
 
 /** Replace settings from an imported object (for moving between machines). */
@@ -148,5 +170,7 @@ export function importSettings(data: Partial<Settings>): Settings {
     store.set('viewMode', data.viewMode)
   }
   if (data.repoMeta && typeof data.repoMeta === 'object') store.set('repoMeta', data.repoMeta)
+  // Through the same normaliser as the settings UI (floor ordering, de-duped list).
+  if (data.awakeConfig) setAwakeConfig(sanitizeAwakeConfig(data.awakeConfig))
   return exportSettings()
 }

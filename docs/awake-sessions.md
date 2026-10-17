@@ -27,6 +27,7 @@ synthetic dataset via `npm run screenshots awake`).
 | Browsers | `src/main/browsers.ts`: `scanThrottledBrowsers()` (lsappinfo pid → `ps -ww -o args=`, both `UNTHROTTLE_FLAGS` must be present) for Chrome, Chromium, Arc, Comet — refreshed on popover open and every 60 s in a session. `relaunchUnthrottled()` after an inline confirm: read args twice (same `lstart`), AppleScript quit, wait ≤ 10 s (else launch nothing), `open -b <id> --args <flags> <profile args>`, wait ≤ 5 s. Card shows when `lidReady` (idle) or `mode === 'lid'` (running). |
 | Floors | On battery: LPM below `lowPowerFloor` (40), end below `endFloor` (10, 0 = off). Heat rules: LPM at `serious`, end at `critical`. |
 | Recovery | Journal before every change; reconcile at launch; launchd backstop for crashes; quit ends the session first. |
+| Export / import | `exportSettings()` includes `awakeConfig`; `importSettings()` passes it through `sanitizeAwakeConfig()` (only known keys whose type matches the default; freeze-list ids must match `[A-Za-z0-9.-]+`) and then `setAwakeConfig()` (floor ordering), after which the IPC handler calls `updateAwakeConfig({})` to push. Sessions, the journal, and the sudoers rule are never exported. |
 | Palette | "Keep Mac awake for 1h / 4h / 8h", "Keep awake 1 hour longer", "End awake session", "Awake session…". |
 
 ## 2. Signals

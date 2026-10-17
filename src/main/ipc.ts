@@ -179,6 +179,8 @@ export function registerIpc(): void {
     try {
       const data = JSON.parse(await readFile(result.filePaths[0], 'utf8'))
       importSettings(data)
+      // Let a running awake session and every open popover pick up the new rules.
+      await updateAwakeConfig({})
       return { success: true }
     } catch (err) {
       return { success: false, error: String(err) }
