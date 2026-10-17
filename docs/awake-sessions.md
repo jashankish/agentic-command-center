@@ -16,7 +16,7 @@ synthetic dataset via `npm run screenshots awake`).
 |---|---|
 | Duration | Days / Hours / Minutes pills (ceilings 30 / 23 / 59, two digits, ↑/↓ nudge, Enter starts) + presets 30m · 1h · 2h · 4h · 8h · 12h · 1d · 3d. Min 1 min, max 30 days. Never a toggle. |
 | Refresh | Opening the popover calls `refreshAwake()`, which re-checks access + battery and pushes, so a rule installed from Terminal shows immediately. |
-| Running | Live clock, "until <time>", progress bar, add-time chips (+15m +30m +1h +2h, `+…` custom), status tags, hold-to-end (0.6 s ring; release / slide off cancels). |
+| Running | Live clock, "until <time>", progress bar, add-time chips (+15m +30m +1h +2h, `+…` custom), status tags, hold-to-end (0.6 s ring; release / slide off cancels; holding Space or Enter on the focused control does the same, keyup / blur cancels). |
 | Sleep hold | `sudo -n pmset -a disablesleep 1` when the sudoers rule exists (`mode: 'lid'`), always plus `powerSaveBlocker('prevent-app-suspension')`. Without the rule: assertion only (`mode: 'assertion'`, "Lid open only"). |
 | Health bar | `Awake · <countdown>` chip while a session runs (accent = `lid`, amber = `assertion`); `Awake restore pending` when `restorePending`. |
 | Lid close | Only in `lid` mode (or under `ACC_SIMULATE_LID`) — in assertion mode the Mac sleeps on close anyway. Sleep the display (`pmset displaysleepnow`, best effort), mute (osascript), Low Power Mode (`pmset -b lowpowermode 1`), SIGSTOP the freeze list. Lid open undoes all of it. |
@@ -127,6 +127,10 @@ Docker idle freeze rule.
   `SleepDisabled` back to 0. `kill -9` with the lid closed: the launchd backstop ran
   `sudo -n pmset -a disablesleep 0` and `-b lowpowermode 0`, unmuted, and retired itself 5 s after
   expiry.
+- **Keyboard hold + shared hold, live (2026-10-17):** Space / Enter held 900 ms ended a session,
+  250 ms did not; mouse hold unchanged. These test sessions ran while the user's installed v1.5.0
+  app held a real lid-mode session: each found `SleepDisabled 1` already set, took it as a shared
+  hold without claiming it, and ending them left the user's sleep hold and Low Power Mode intact.
 - **Testing hooks**: `ACC_SIMULATE_LID=<file>` — the lid reads closed while the file says `closed`;
   `ACC_SIMULATE_OFFLINE=<file>` — the network reads down while it says `offline`;
   `ACC_TMUX_BIN=<path>` — a stand-in tmux. The nudge was verified against a logging fake tmux:

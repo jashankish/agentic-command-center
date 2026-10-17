@@ -113,7 +113,8 @@ function DurationFields({
 
 /** Press and hold to end: a ring draws around the button over 0.6 s and only
  *  a completed ring ends the session. Releasing or sliding off springs it back,
- *  so a stray click can't kill a session. */
+ *  so a stray click can't kill a session. Holding Space or Enter does the same
+ *  from the keyboard; letting go early, or moving focus away, cancels. */
 function HoldToEnd({ onEnd }: { onEnd: () => void }): JSX.Element {
   const HOLD_MS = 600
   const [progress, setProgress] = useState(0)
@@ -127,6 +128,7 @@ function HoldToEnd({ onEnd }: { onEnd: () => void }): JSX.Element {
   }, [])
 
   const begin = (): void => {
+    if (raf.current !== null) return // already holding
     started.current = performance.now()
     const step = (t: number): void => {
       const p = Math.min(1, (t - started.current) / HOLD_MS)
@@ -156,7 +158,17 @@ function HoldToEnd({ onEnd }: { onEnd: () => void }): JSX.Element {
       onPointerUp={cancel}
       onPointerCancel={cancel}
       onPointerLeave={cancel}
-      title="Press and hold to end the session"
+      onKeyDown={(e) => {
+        if (e.key !== ' ' && e.key !== 'Enter') return
+        e.preventDefault()
+        if (!e.repeat) begin()
+      }}
+      onKeyUp={(e) => {
+        if (e.key === ' ' || e.key === 'Enter') cancel()
+      }}
+      onBlur={cancel}
+      title="Press and hold to end the session (or hold Space / Enter)"
+      aria-label="End the awake session — press and hold, or hold Space or Enter"
     >
       <svg width="36" height="36" viewBox="0 0 36 36">
         <circle cx="18" cy="18" r={R} className="awake-hold-track" />

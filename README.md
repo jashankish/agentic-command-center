@@ -494,8 +494,9 @@ command center, plus agent-aware rules of its own.
 
 - **Add time** — `+15m` / `+30m` / `+1h` / `+2h` chips, or `+…` for a custom amount (30-day cap).
   The palette's **Keep awake 1 hour longer** does the same.
-- **End early** — **press and hold** the stop control: a red ring draws for 0.6 s and only a
-  completed ring ends it, so a stray click can't kill a session. **End awake session** in the ⌘K
+- **End early** — **press and hold** the stop control (or focus it and **hold Space / Enter**): a
+  red ring draws for 0.6 s and only a completed ring ends it, so a stray click or keypress can't
+  kill a session. **End awake session** in the ⌘K
   palette works too, and quitting the app ends the session first.
 - **Status tags** — lid open/closed, battery % (or *Plugged in*), agents working, *Offline* during a
   network outage, and what the session currently holds (*Low Power*, *Muted*, *N apps frozen*,
