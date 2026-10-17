@@ -75,7 +75,9 @@ session drops to assertion mode with a warning.
 - A restore that fails leaves its flag set, shows a warning and **Retry restore**
   (`restorePending`), and keeps the backstop armed.
 
-**Backstop**: `~/Library/LaunchAgents/com.jashan.agenticcommandcenter.awake-backstop.plist`
+**Backstop**: `~/Library/LaunchAgents/com.jashan.agenticcommandcenter.awake-backstop.plist` (any
+non-default profile, `ACC_USER_DATA`, appends `.<sha256(journal path)[:10]>` to the label and file
+so copies of the app never collide)
 runs `/bin/sh <userData>/awake/backstop.sh <journal> <label> <plist>` every 60 s (RunAtLoad). It
 reads the journal with `plutil -extract … raw`, exits while `appPid` is alive with a matching start
 time, leaves a valid (unexpired) session alone, otherwise undoes the flags (sudo -n pmset, osascript
@@ -137,6 +139,8 @@ Docker idle freeze rule.
     resumes immediately (`updateAwakeConfig()`, `resumeFrozen(keep)`).
   - **Clickable notifications:** clicking an awake notification brings the main window forward with
     the popover open (`revealAwake()` → `awake:open` → `onAwakeOpen`).
+  - **Backstop isolation:** the launchd backstop label is per-profile for non-default profiles, so a
+    dev build or test profile ending its session can't remove the installed app's crash protection.
   - Dev: `npm run fix:electron` re-signs the revoked dev Electron (`5987d3f`).
 
 - **Live-tested** in the real app (CDP-driven, throwaway profile, `ACC_SIMULATE_LID`): UI start,
@@ -164,6 +168,11 @@ Docker idle freeze rule.
   AC kept running; serious heat kept running with a red *Hot* tag; critical heat ended
   (`thermal`); heat rules off + critical kept running. (Low Power claiming was already verified in
   the lid-mode run; here the user's own session held it, so the dev session correctly didn't.)
+- **Backstop isolation + quit, live (2026-10-17):** with the user's installed app running a real
+  24 h lid session, a dev session on a test profile armed its own `…awake-backstop.<hash>` job; the
+  user's job was untouched (same run count, still pointing at their journal). `app.quit()` mid-
+  session ended the dev session first — journal cleared, its backstop removed, its assertion
+  released — and left the user's sleep hold in place.
 - **Testing hooks**: `ACC_SIMULATE_LID=<file>` — the lid reads closed while the file says `closed`;
   `ACC_SIMULATE_OFFLINE=<file>` — the network reads down while it says `offline`;
   `ACC_TMUX_BIN=<path>` — a stand-in tmux. `ACC_SIMULATE_BATTERY=<file>` — `<percent> battery|ac`;

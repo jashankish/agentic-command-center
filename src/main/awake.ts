@@ -4,7 +4,7 @@ import { existsSync } from 'fs'
 import { chmod, mkdir, readFile, rename, rm, writeFile } from 'fs/promises'
 import { homedir, userInfo } from 'os'
 import { basename, join } from 'path'
-import { randomUUID } from 'crypto'
+import { createHash, randomUUID } from 'crypto'
 import { getAwakeConfig, setAwakeConfig, listRepos } from './store'
 import { getTerminals } from './terminals'
 import { nudgeMarkedPanes } from './tmux'
@@ -37,7 +37,13 @@ import type {
 const PMSET = '/usr/bin/pmset'
 const SUDO = '/usr/bin/sudo'
 const SUDOERS_FILE = '/etc/sudoers.d/agentic-command-center'
-const BACKSTOP_LABEL = 'com.jashan.agenticcommandcenter.awake-backstop'
+const BACKSTOP_BASE_LABEL = 'com.jashan.agenticcommandcenter.awake-backstop'
+/** The launchd label for this profile's backstop. The default profile keeps
+ *  the plain label (so upgrades find the job they armed); any other profile
+ *  (ACC_USER_DATA) gets a suffix from its journal path, so a second copy of
+ *  the app — a dev build, a test profile — can never boot out another copy's
+ *  crash protection when its own session ends. Set in initAwake(). */
+let backstopLabel = BACKSTOP_BASE_LABEL
 const MAX_SESSION_S = 30 * 24 * 3600
 const MIN_SESSION_S = 60
 /** Agent-aware extension: step size and the most it may add in total. */
@@ -584,7 +590,7 @@ printf '%s\\n' '{"version":1,"session":null,"mode":null,"endsAtEpoch":0,"appPid"
 retire
 `
 
-const plistPath = (): string => join(homedir(), 'Library', 'LaunchAgents', `${BACKSTOP_LABEL}.plist`)
+const plistPath = (): string => join(homedir(), 'Library', 'LaunchAgents', `${backstopLabel}.plist`)
 
 const xml = (s: string): string =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -593,12 +599,12 @@ async function armBackstop(): Promise<void> {
   const script = join(dir, 'backstop.sh')
   await writeFile(script, BACKSTOP_SH, { mode: 0o700 })
   await chmod(script, 0o700)
-  const args = ['/bin/sh', script, journalPath, BACKSTOP_LABEL, plistPath()]
+  const args = ['/bin/sh', script, journalPath, backstopLabel, plistPath()]
   const plist = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>Label</key><string>${BACKSTOP_LABEL}</string>
+  <key>Label</key><string>${backstopLabel}</string>
   <key>ProgramArguments</key>
   <array>${args.map((a) => `<string>${xml(a)}</string>`).join('')}</array>
   <key>StartInterval</key><integer>60</integer>
@@ -609,7 +615,7 @@ async function armBackstop(): Promise<void> {
   await mkdir(join(homedir(), 'Library', 'LaunchAgents'), { recursive: true })
   await writeFile(plistPath(), plist, { mode: 0o644 })
   const uid = String(process.getuid?.() ?? userInfo().uid)
-  const loaded = await run('/bin/launchctl', ['print', `gui/${uid}/${BACKSTOP_LABEL}`], 5000)
+  const loaded = await run('/bin/launchctl', ['print', `gui/${uid}/${backstopLabel}`], 5000)
   if (!loaded.ok) {
     const r = await run('/bin/launchctl', ['bootstrap', `gui/${uid}`, plistPath()], 10_000)
     if (!r.ok) warn('The crash-recovery backstop could not be armed; keep the app open until the session ends.')
@@ -618,7 +624,7 @@ async function armBackstop(): Promise<void> {
 
 async function disarmBackstop(): Promise<void> {
   const uid = String(process.getuid?.() ?? userInfo().uid)
-  await run('/bin/launchctl', ['bootout', `gui/${uid}/${BACKSTOP_LABEL}`], 10_000)
+  await run('/bin/launchctl', ['bootout', `gui/${uid}/${backstopLabel}`], 10_000)
   await rm(plistPath(), { force: true })
 }
 
@@ -1341,6 +1347,9 @@ export async function refreshAwake(): Promise<AwakeState> {
 export async function initAwake(): Promise<void> {
   dir = join(app.getPath('userData'), 'awake')
   journalPath = join(dir, 'journal.json')
+  backstopLabel = process.env.ACC_USER_DATA
+    ? `${BACKSTOP_BASE_LABEL}.${createHash('sha256').update(journalPath).digest('hex').slice(0, 10)}`
+    : BACKSTOP_BASE_LABEL
   await mkdir(dir, { recursive: true, mode: 0o700 })
   appStartedAt = (await processStart(process.pid)) ?? ''
   await refreshFreezeNames(getAwakeConfig())
