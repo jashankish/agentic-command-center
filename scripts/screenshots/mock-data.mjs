@@ -268,14 +268,15 @@ export function buildData() {
       config: {
         darkenDisplayOnLidClose: true, muteOnLidClose: true, lowPowerOnLidClose: true,
         freezeList: ['com.tinyspeck.slackmacgap', 'net.whatsapp.WhatsApp', 'com.hnc.Discord'],
-        lowPowerFloor: 40, endFloor: 10, thermalRules: true, extendWhileAgentsWork: true
+        lowPowerFloor: 40, endFloor: 10, thermalRules: true, extendWhileAgentsWork: true,
+        tmuxNudge: true, tmuxNudgePressesEnter: false
       },
       freezeApps: [
         { bundleId: 'com.tinyspeck.slackmacgap', name: 'Slack' },
         { bundleId: 'net.whatsapp.WhatsApp', name: 'WhatsApp' },
         { bundleId: 'com.hnc.Discord', name: 'Discord' }
       ],
-      lastEnd: null, restorePending: false, agentsWorking: 2
+      lastEnd: null, restorePending: false, agentsWorking: 2, offlineSince: null
     }
   }
 }

@@ -17,7 +17,9 @@ const DEFAULT_AWAKE_CONFIG: AwakeConfig = {
   lowPowerFloor: 40,
   endFloor: 10,
   thermalRules: true,
-  extendWhileAgentsWork: false
+  extendWhileAgentsWork: false,
+  tmuxNudge: false,
+  tmuxNudgePressesEnter: false
 }
 
 interface StoreSchema {

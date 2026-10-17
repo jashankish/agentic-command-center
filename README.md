@@ -105,6 +105,8 @@ rest keeps working.
   (Slack, WhatsApp, Discord by default) — all undone when the lid opens.
 - **Stay awake while agents work** (opt-in) — if the timer runs out while a Claude session in the
   terminals panel is still mid-turn, the session keeps going 15 minutes at a time (12 h cap).
+- **tmux "continue" nudge** (opt-in) — when the network returns after a 90 s+ outage, types
+  `continue` into tmux panes you've marked, so agents stalled on failed API calls retry.
 - **Battery & heat floors** (Low Power Mode below 40%, end below 10%, heat rules) and a
   **crash-safe recovery journal** + launchd backstop so a crash never leaves sleep disabled.
 
@@ -487,6 +489,20 @@ by **15 minutes** instead of ending, re-checking each time, up to **12 hours** o
 notification says so the first time. The countdown notes *+Nm for agents* and a tag shows how many
 agents are working. Sessions waiting on you (permission / your turn) don't count — only real work.
 
+**After a network outage** — an opt-in rule under ⚙. If the network drops during a session (an
+amber *Offline* tag shows how long) and comes back after **90 s or more**, the app types `continue`
+into every tmux pane you've marked, so an agent that gave up on failed API calls carries on. Only
+panes carrying the pane-scoped mark are touched — the same one Insomnia uses:
+
+```bash
+tmux set-option -p -t <session:window.pane> @insomnia-nudge on
+```
+
+The mark is re-read on the pane itself (never inherited from the window or session) right before
+each send, and a pane that is dead, in copy/choose mode, or not accepting input is skipped. **Enter
+is off by default** — turn on *Press Enter after it* to submit, knowing it also submits anything
+already typed there; mark a dedicated agent pane, not one you type in.
+
 **Battery & heat** — on battery, Low Power Mode below **40%** and the session ends below **10%**
 (0 turns the end off); heat rules turn on Low Power Mode at *serious* and end at *critical*.
 
@@ -501,7 +517,7 @@ an *expired* session's changes if the app has crashed, then removes itself.
 
 <p align="center">
   <img src="docs/screenshot-awake.png" alt="The awake popover over the bottom-right corner pill: a 02:48:00 countdown until 8:10 PM with +1h added, a gradient progress bar, +15m/+30m/+1h/+2h/+… add-time chips, lid, battery, and agents-working status tags, a Lid-close safe badge, and the press-and-hold end control" width="300" />
-  <img src="docs/screenshot-awake-settings.png" alt="Awake settings: a Stay awake while agents work toggle; toggles to sleep the display, mute audio, and turn on Low Power Mode when the lid closes; a freeze list with Slack, WhatsApp, and Discord; battery floors at 40% and 10%; heat rules; and the lid-close access status" width="300" />
+  <img src="docs/screenshot-awake-settings.png" alt="Awake settings: a Stay awake while agents work toggle; a toggle to type continue into marked tmux panes after a network outage, with the pane-mark command; toggles to sleep the display, mute audio, and turn on Low Power Mode when the lid closes; a freeze list with Slack, WhatsApp, and Discord; battery floors at 40% and 10%; heat rules; and the lid-close access status" width="300" />
 </p>
 
 ---
@@ -707,7 +723,8 @@ Designed to be safe to open-source and run on any developer's machine:
   `visudo`, and removable from settings. Any program running as you can use those four commands too,
   so the details view shows the rule before you approve it. Every change is journaled before it is
   made; frozen processes are resumed only after their start time is re-verified; the launchd
-  backstop exists only while a session or an unfinished restore does.
+  backstop exists only while a session or an unfinished restore does. The tmux nudge is off by
+  default and only ever types into panes you explicitly marked, never pressing Enter unless asked.
 
 ---
 

@@ -16,6 +16,7 @@ Electron main process; the UI follows the command center's own glass/hairline/ac
 | Health bar | `Awake · <countdown>` chip while a session runs (accent = `lid`, amber = `assertion`); `Awake restore pending` when `restorePending`. |
 | Lid close | Only in `lid` mode (or under `ACC_SIMULATE_LID`) — in assertion mode the Mac sleeps on close anyway. Sleep the display (`pmset displaysleepnow`, best effort), mute (osascript), Low Power Mode (`pmset -b lowpowermode 1`), SIGSTOP the freeze list. Lid open undoes all of it. |
 | Agents | Opt-in `extendWhileAgentsWork`: at expiry, if the terminals snapshot shows any Claude session in `working`, extend 15 min (`autoExtendedBy`), capped at 12 h total; first extension notifies. Waiting states (`permission`, `input`) don't count. |
+| Outage nudge | Opt-in `tmuxNudge`: `net.isOnline()` polled every 5 s during a session (`offlineSince` → amber *Offline* tag). Back online after ≥ 90 s → `nudgeMarkedPanes()` (`src/main/tmux.ts`): `list-panes -a`, then per pane `show-options -qpv @insomnia-nudge` must be exactly `on`, `display-message` flags `dead/in_mode/input_off` must be `0 0 0`, the session must still be the same, then `send-keys -l continue` (+ `Enter` only with `tmuxNudgePressesEnter`). Notifies with the count. |
 | Floors | On battery: LPM below `lowPowerFloor` (40), end below `endFloor` (10, 0 = off). Heat rules: LPM at `serious`, end at `critical`. |
 | Recovery | Journal before every change; reconcile at launch; launchd backstop for crashes; quit ends the session first. |
 | Palette | "Keep Mac awake for 1h / 4h / 8h", "Keep awake 1 hour longer", "End awake session", "Awake session…". |
@@ -101,7 +102,7 @@ commands. Removal is refused while a session or unfinished restore exists.
 
 ## 7. Not ported from Insomnia
 
-iPhone-hotspot failover, tmux "continue" nudge, Chrome/Arc occlusion-throttling relaunch, App Nap
+iPhone-hotspot failover, Chrome/Arc occlusion-throttling relaunch, App Nap
 overrides, private-framework brightness save/restore (display sleep is used instead), Docker idle
 freeze rule.
 
@@ -111,7 +112,11 @@ freeze rule.
   hold-to-end (200 ms ignored, 900 ms ends), lid close/open (mute + SIGSTOP, then restore),
   `kill -9` → backstop restore within 5 s of expiry, `kill -9` + relaunch → takeover, agent-aware
   extension. Lid mode (`pmset disablesleep`, LPM) awaits an approved admin prompt.
-- **Testing hook**: `ACC_SIMULATE_LID=<file>` — the lid reads closed while the file says `closed`.
+- **Testing hooks**: `ACC_SIMULATE_LID=<file>` — the lid reads closed while the file says `closed`;
+  `ACC_SIMULATE_OFFLINE=<file>` — the network reads down while it says `offline`;
+  `ACC_TMUX_BIN=<path>` — a stand-in tmux. The nudge was verified against a logging fake tmux:
+  marked idle pane nudged (no Enter), unmarked pane skipped before any state read, marked pane in
+  copy mode refused, and a 20 s outage nudged nothing.
 
 - Branch `worktree-feature-insomnia-awake`. Screenshots via the headless harness:
   `npm run screenshots awake` (`screenshot-awake.png`, `screenshot-awake-settings.png`); the mock

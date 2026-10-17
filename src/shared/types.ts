@@ -398,6 +398,11 @@ export interface AwakeConfig {
   /** When the timer runs out while a Claude session is still working, add
    *  15 minutes at a time (up to 12 hours in total) instead of ending. */
   extendWhileAgentsWork: boolean
+  /** After a network outage of 90 s or more, type `continue` into tmux panes
+   *  marked `@insomnia-nudge on`, so a stalled agent retries. */
+  tmuxNudge: boolean
+  /** Press Enter after `continue` (also submits anything already typed). */
+  tmuxNudgePressesEnter: boolean
 }
 
 /** A process the lid-close freeze stopped, with the identity that proves it. */
@@ -461,4 +466,6 @@ export interface AwakeState {
   restorePending: boolean
   /** Claude sessions working right now (refreshed while a session runs). */
   agentsWorking: number
+  /** ISO time the network dropped, while it is still down during a session. */
+  offlineSince: string | null
 }

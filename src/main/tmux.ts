@@ -44,7 +44,8 @@ function resolveTmux(): string {
   return 'tmux'
 }
 
-const tmuxBin = resolveTmux()
+// ACC_TMUX_BIN points tests at a stand-in binary.
+const tmuxBin = process.env.ACC_TMUX_BIN || resolveTmux()
 
 const normTty = (raw: string): string => raw.trim().replace(/^\/dev\//, '')
 
@@ -110,4 +111,60 @@ export async function revealTmuxPane(ref: TmuxPaneRef, clientTty: string): Promi
   await tmux(['switch-client', '-c', `/dev/${clientTty}`, '-t', ref.session])
   await tmux(['select-window', '-t', windowTarget])
   await tmux(['select-pane', '-t', ref.pane])
+}
+
+/** Pane-scoped option marking a pane for the awake-session nudge — the same
+ *  mark Insomnia uses, so a pane marked for either app works for both. */
+export const NUDGE_MARK = '@insomnia-nudge'
+
+/**
+ * Type `continue` into every tmux pane the user marked with
+ * `tmux set-option -p -t <pane> @insomnia-nudge on` (after a network outage,
+ * so a stalled agent retries). A keystroke can't be taken back, so before each
+ * pane: `stillWanted()` must hold, the mark is re-read on the pane itself
+ * (`show-options -p`, never inherited from the window or session), and the
+ * pane must be live, not in copy/choose mode, and accepting input. Enter only
+ * follows when `pressEnter` — it would also submit anything already typed.
+ * Returns how many panes were nudged.
+ */
+export async function nudgeMarkedPanes(
+  pressEnter: boolean,
+  stillWanted: () => boolean
+): Promise<number> {
+  let ids: string[]
+  try {
+    ids = (await tmux(['list-panes', '-a', '-F', '#{pane_id}']))
+      .split('\n')
+      .map((s) => s.trim())
+      .filter((s) => /^%\d+$/.test(s))
+  } catch {
+    return 0 // no tmux server
+  }
+  let sent = 0
+  for (const id of ids) {
+    if (!stillWanted()) break
+    try {
+      if ((await tmux(['show-options', '-qpv', '-t', id, NUDGE_MARK])).trim() !== 'on') continue
+      const flags = (
+        await tmux([
+          'display-message',
+          '-p',
+          '-t',
+          id,
+          '-F',
+          '#{pane_id} #{pane_dead} #{pane_in_mode} #{pane_input_off}'
+        ])
+      )
+        .trim()
+        .split(' ')
+      if (flags.length !== 4 || flags[0] !== id || flags.slice(1).some((f) => f !== '0')) continue
+      if (!stillWanted()) break
+      await tmux(['send-keys', '-t', id, '-l', 'continue'])
+      if (pressEnter) await tmux(['send-keys', '-t', id, 'Enter'])
+      sent++
+    } catch {
+      // Pane vanished or tmux refused — skip it.
+    }
+  }
+  return sent
 }

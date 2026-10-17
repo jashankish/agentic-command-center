@@ -270,6 +270,27 @@ function SettingsView({
         onChange={(v) => set({ extendWhileAgentsWork: v })}
       />
 
+      <div className="awake-group-label">After a network outage</div>
+      <Toggle
+        on={c.tmuxNudge}
+        label="Type “continue” into marked tmux panes"
+        hint="When the network returns after 90 s or more, so a stalled agent retries. Only panes you marked are touched."
+        onChange={(v) => set({ tmuxNudge: v })}
+      />
+      {c.tmuxNudge && (
+        <>
+          <Toggle
+            on={c.tmuxNudgePressesEnter}
+            label="Press Enter after it"
+            hint="Also submits anything already typed in that pane — mark a dedicated agent pane."
+            onChange={(v) => set({ tmuxNudgePressesEnter: v })}
+          />
+          <p className="awake-note">
+            Mark a pane once: <code>tmux set-option -p -t &lt;pane&gt; @insomnia-nudge on</code>
+          </p>
+        </>
+      )}
+
       <div className="awake-group-label">When the lid closes</div>
       <Toggle
         on={c.darkenDisplayOnLidClose}
@@ -544,6 +565,18 @@ export default function AwakeWidget({ state, open, onOpenChange }: Props): JSX.E
                         {state.agentsWorking > 0
                           ? `${state.agentsWorking} agent${state.agentsWorking === 1 ? '' : 's'} working`
                           : 'Agent-aware'}
+                      </span>
+                    )}
+                    {state.offlineSince && (
+                      <span
+                        className="awake-stat warm"
+                        title={
+                          state.config.tmuxNudge
+                            ? 'Marked tmux panes get “continue” if this lasts 90 s or more'
+                            : 'Network is down'
+                        }
+                      >
+                        Offline {shortDuration(Math.max(60, (now - new Date(state.offlineSince).getTime()) / 1000))}
                       </span>
                     )}
                     {state.lowPowerByUs && <span className="awake-stat on">Low Power</span>}

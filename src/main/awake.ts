@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Notification, powerMonitor, powerSaveBlocker } from 'electron'
+import { app, BrowserWindow, net, Notification, powerMonitor, powerSaveBlocker } from 'electron'
 import { execFile } from 'child_process'
 import { existsSync } from 'fs'
 import { chmod, mkdir, readFile, rename, rm, writeFile } from 'fs/promises'
@@ -7,6 +7,7 @@ import { basename, join } from 'path'
 import { randomUUID } from 'crypto'
 import { getAwakeConfig, setAwakeConfig, listRepos } from './store'
 import { getTerminals } from './terminals'
+import { nudgeMarkedPanes } from './tmux'
 import type {
   AwakeConfig,
   AwakeEndReason,
@@ -40,6 +41,8 @@ const MIN_SESSION_S = 60
 /** Agent-aware extension: step size and the most it may add in total. */
 const AGENT_STEP_S = 15 * 60
 const AGENT_CAP_S = 12 * 3600
+/** An outage at least this long earns marked tmux panes a `continue`. */
+const NUDGE_AFTER_MS = 90_000
 
 /** Apps the freeze list may never stop: system processes, agent hosts and
  *  terminals (the work the session exists for), and this app. */
@@ -247,6 +250,7 @@ let endTimer: NodeJS.Timeout | null = null
 let tickTimer: NodeJS.Timeout | null = null
 let lidTimer: NodeJS.Timeout | null = null
 let batteryTimer: NodeJS.Timeout | null = null
+let netTimer: NodeJS.Timeout | null = null
 let appStartedAt = ''
 let quitting = false
 /** Serializes start / extend / end / lid / floor work so they never interleave. */
@@ -261,7 +265,8 @@ const live = {
   foreignSleepHold: false,
   warnings: [] as string[],
   lastEnd: null as AwakeState['lastEnd'],
-  agentsWorking: 0
+  agentsWorking: 0,
+  offlineSince: null as number | null
 }
 
 function exclusive<T>(fn: () => Promise<T>): Promise<T> {
@@ -351,7 +356,8 @@ export function getAwakeState(): AwakeState {
     freezeApps: config.freezeList.map((id) => ({ bundleId: id, name: freezeNames[id] ?? id })),
     lastEnd: live.lastEnd,
     restorePending: !j.session && runtimeDirty(j.runtime),
-    agentsWorking: live.agentsWorking
+    agentsWorking: live.agentsWorking,
+    offlineSince: live.offlineSince ? new Date(live.offlineSince).toISOString() : null
   }
 }
 
@@ -675,6 +681,50 @@ async function evaluateFloors(): Promise<void> {
   await setLowPower(want).catch(() => undefined)
 }
 
+// ---------- network outage → tmux nudge ----------
+
+async function isOnline(): Promise<boolean> {
+  // Test hook: `echo offline > $ACC_SIMULATE_OFFLINE` simulates an outage.
+  const simulated = process.env.ACC_SIMULATE_OFFLINE
+  if (simulated) {
+    try {
+      return (await readFile(simulated, 'utf8')).trim() !== 'offline'
+    } catch {
+      return true
+    }
+  }
+  return net.isOnline()
+}
+
+/** Track outages during a session; when the network returns after 90 s or
+ *  more, nudge marked tmux panes (if enabled) so stalled agents retry. */
+async function pollNetwork(): Promise<void> {
+  const s = J().session
+  if (!s) return
+  const online = await isOnline()
+  if (!online) {
+    if (live.offlineSince === null) {
+      live.offlineSince = Date.now()
+      push()
+    }
+    return
+  }
+  if (live.offlineSince === null) return
+  const gap = Date.now() - live.offlineSince
+  live.offlineSince = null
+  push()
+  const c = getAwakeConfig()
+  if (gap < NUDGE_AFTER_MS || !c.tmuxNudge) return
+  const sid = s.id
+  const n = await nudgeMarkedPanes(c.tmuxNudgePressesEnter, () => J().session?.id === sid)
+  if (n > 0) {
+    notify(
+      'Network back — agents nudged',
+      `Typed "continue" into ${n} tmux pane${n === 1 ? '' : 's'} after ${Math.round(gap / 60_000)} min offline.`
+    )
+  }
+}
+
 // ---------- monitors ----------
 
 function startMonitors(): void {
@@ -691,6 +741,7 @@ function startMonitors(): void {
       })
     })
   }, 2000)
+  netTimer = setInterval(() => void pollNetwork(), 5000)
   batteryTimer = setInterval(() => {
     void pollBattery()
     // Keep the "agents working" tag fresh while the agent rule is on.
@@ -713,9 +764,10 @@ function startMonitors(): void {
 }
 
 function stopMonitors(): void {
-  for (const t of [lidTimer, batteryTimer, tickTimer]) if (t) clearInterval(t)
+  for (const t of [lidTimer, batteryTimer, tickTimer, netTimer]) if (t) clearInterval(t)
   if (endTimer) clearTimeout(endTimer)
-  lidTimer = batteryTimer = tickTimer = endTimer = null
+  lidTimer = batteryTimer = tickTimer = endTimer = netTimer = null
+  live.offlineSince = null
 }
 
 function armEndTimer(): void {

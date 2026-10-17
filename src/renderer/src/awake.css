@@ -723,3 +723,10 @@
   line-height: 1.5;
   color: var(--muted);
 }
+
+.awake-note code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9.5px;
+  color: var(--text);
+  user-select: text;
+}
